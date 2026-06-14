@@ -2,11 +2,22 @@
 
 ## Objetivo
 
-Estimar volatilidade realizada e jumps em acoes da B3, comparar uma amostra liquida com candidatas growth/high-vol/small caps e discutir implicacoes para gestao de risco.
+Estimar volatilidade realizada, separar variacao continua e jumps, comparar ativos liquidos com growth/high-vol e discutir gestao de risco.
 
 ## Repositorio
 
 `https://github.com/JoaoPauloZangrandi/volatilidade-realizada-b3`
+
+## Amostra executada
+
+Incluidos: PETR4.SA, VALE3.SA, ITUB4.SA, BBDC4.SA, B3SA3.SA, WEGE3.SA, ABEV3.SA, TOTS3.SA, LWSA3.SA, MGLU3.SA, CASH3.SA.
+
+Excluidos:
+
+- BHIA3.SA: precos parados 58.5% acima do maximo
+- CVCB3.SA: precos parados 57.8% acima do maximo
+- AZUL4.SA: download vazio
+- VIIA3.SA: download vazio
 
 ## Execucao
 
@@ -15,14 +26,13 @@ Estimar volatilidade realizada e jumps em acoes da B3, comparar uma amostra liqu
 python scripts/run_all.py
 ```
 
-## Fonte
-
-Dados intradiarios de 5 minutos obtidos via `yfinance`, com janela maxima recente imposta pelo Yahoo Finance.
-
 ## Entregaveis
 
-- Dados organizados em `data/`.
-- Tabelas e figuras em `outputs/`.
-- Relatorio em `report/relatorio.md`.
-- Slides em `outputs/slides/`.
+- Relatorio: `outputs/report/relatorio.md`.
+- Slides: `outputs/slides/trabalho_volatilidade_realizada_b3.pptx`.
+- Tabelas: `outputs/tables/`.
+- Figuras: `outputs/figures/`.
 
+## Limitacao central
+
+O historico intradiario do Yahoo Finance e curto. GARCH e jumps devem ser interpretados junto com cobertura e liquidez.

@@ -1,0 +1,1 @@
+ticker,event_date,event_type,event_description,rvol_t_minus_1,rvol_t,rvol_t_plus_1,jump_day_t_minus_1,jump_day_t,jump_day_t_plus_1,normal_mean_rvol,event_window_mean_rvol,event_vs_normal_ratio,normal_jump_frequency,event_window_jump_frequency,status

@@ -7,6 +7,7 @@ from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
+from PIL import Image
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
@@ -55,6 +56,29 @@ class AcademicDeck:
         paragraph.font.size = Pt(8)
         paragraph.font.color.rgb = GRAY
         paragraph.alignment = PP_ALIGN.RIGHT
+
+    @staticmethod
+    def _add_picture_fit(
+        slide: Any,
+        image: Path,
+        left: int,
+        top: int,
+        max_width: int,
+        max_height: int,
+    ) -> None:
+        with Image.open(image) as source:
+            width_px, height_px = source.size
+        ratio = width_px / height_px
+        box_ratio = max_width / max_height
+        if ratio >= box_ratio:
+            width = max_width
+            height = int(max_width / ratio)
+        else:
+            height = max_height
+            width = int(max_height * ratio)
+        x = left + (max_width - width) // 2
+        y = top + (max_height - height) // 2
+        slide.shapes.add_picture(str(image), x, y, width=width, height=height)
 
     def title_slide(self, title: str, subtitle: str) -> None:
         slide = self.presentation.slides.add_slide(
@@ -127,12 +151,13 @@ class AcademicDeck:
             paragraph.text = f"• {paragraph.text}"
 
         if has_image:
-            slide.shapes.add_picture(
-                str(image),
-                Inches(5.35),
-                Inches(1.15),
-                width=Inches(7.45),
-                height=Inches(5.6),
+            self._add_picture_fit(
+                slide,
+                image,
+                left=Inches(5.35),
+                top=Inches(1.15),
+                max_width=Inches(7.45),
+                max_height=Inches(5.6),
             )
         if note:
             note_box = slide.shapes.add_textbox(

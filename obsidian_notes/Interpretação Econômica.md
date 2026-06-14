@@ -1,12 +1,17 @@
 # Interpretacao Economica
 
-Esta nota sera atualizada somente depois da execucao com dados reais. Nenhum resultado sera antecipado ou inventado.
+## Resultado principal
 
-Hipoteses a avaliar:
+O maior nivel medio de volatilidade realizada anualizada foi de **CASH3.SA**, com 54.4%.
 
-- Growth/high-vol pode apresentar RVol e jump risk maiores.
-- PETR4 e VALE3 podem responder mais a commodities e noticias externas.
-- Bancos podem exibir persistencia e comovimento diferentes de tecnologia e consumo.
-- GARCH tende a capturar clustering, mas pode reagir mais lentamente a saltos intradiarios.
-- Baixa liquidez pode produzir precos parados, ruido e falsos sinais de jump.
+## Core versus growth/high-vol
 
+O grupo complementar apresentou volatilidade realizada media maior: 49.4%, contra 25.7% no core (razao 1.92). A frequencia de jumps foi 28.9% no complementar e 11.7% no core.
+
+## Leitura de risco
+
+- RV mede a variacao total observada intradiariamente.
+- BV aproxima a parcela continua; RV acima de BV sustenta a estimativa de JV.
+- GARCH captura persistencia, mas suaviza picos que aparecem imediatamente na RVol.
+- Jump risk elevado pede sizing, margens e stress tests mais conservadores.
+- Resultados de ativos com baixa liquidez devem ser lidos junto com a tabela de cobertura.

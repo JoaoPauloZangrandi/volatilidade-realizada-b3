@@ -14,7 +14,7 @@ Este trabalho estima medidas de volatilidade realizada para acoes da B3 com dado
 
 Os dados foram obtidos via `yfinance`, com `period="60d"` e `interval="5m"`. A amostra observada incluiu PETR4.SA, VALE3.SA, ITUB4.SA, BBDC4.SA, B3SA3.SA, WEGE3.SA, ABEV3.SA, TOTS3.SA, LWSA3.SA, MGLU3.SA, CASH3.SA. O Yahoo Finance limita o historico intradiario recente; portanto, os resultados descrevem uma janela curta e nao devem ser extrapolados mecanicamente para outros regimes.
 
-![Cobertura](../outputs/figures/data_coverage_by_ticker.png)
+![Cobertura](../figures/data_coverage_by_ticker.png)
 
 ## 3. Estrategia de amostra
 
@@ -45,21 +45,21 @@ O GARCH(1,1) foi estimado com retornos diarios close-to-close em porcentagem. Es
 
 O maior nivel medio de volatilidade realizada anualizada foi observado em **CASH3.SA**, com 54.4%. O ranking completo esta em `outputs/tables/asset_ranking_risk.csv`.
 
-![Serie de RVol](../outputs/figures/realized_volatility_time_series.png)
+![Serie de RVol](../figures/realized_volatility_time_series.png)
 
-![Boxplot](../outputs/figures/rvol_boxplot_by_ticker.png)
+![Boxplot](../figures/rvol_boxplot_by_ticker.png)
 
 As series mostram variacao temporal e episodios de clustering. A matriz de correlacao permite avaliar se aumentos de risco ocorrem de forma comum ou idiossincratica, aspecto central para diversificacao.
 
-![Correlacao](../outputs/figures/rvol_correlation_heatmap.png)
+![Correlacao](../figures/rvol_correlation_heatmap.png)
 
 ## 7. Jumps
 
 O ativo com maior frequencia estimada de jump days foi **CASH3.SA**, com 38.3%. A BV ajuda a separar a variacao continua da parcela associada a movimentos descontínuos. Em ativos menos liquidos, precos parados e negociacao esparsa podem distorcer essa separacao; por isso, os filtros de qualidade antecedem o teste.
 
-![RV e BV](../outputs/figures/rv_vs_bv.png)
+![RV e BV](../figures/rv_vs_bv.png)
 
-![Jump days](../outputs/figures/jump_frequency_by_ticker.png)
+![Jump days](../figures/jump_frequency_by_ticker.png)
 
 ## 8. GARCH
 
@@ -77,7 +77,7 @@ A persistencia mediana alpha + beta foi 0.942. Em geral, o GARCH representa pers
 - VALE3.SA: alpha+beta=0.355, correlacao GARCH-RVol=-0.041, status=ok.
 - WEGE3.SA: alpha+beta=0.017, correlacao GARCH-RVol=0.114, status=ok.
 
-![GARCH vs RVol](../outputs/figures/garch_vs_realized_all.png)
+![GARCH vs RVol](../figures/garch_vs_realized_all.png)
 
 ## 9. Comparacao entre ativos liquidos e growth/small caps
 
@@ -85,13 +85,13 @@ O grupo complementar apresentou volatilidade realizada media maior: 49.4%, contr
 
 PETR4 e VALE3 podem responder a petroleo, minerio, cambio e noticias globais; bancos refletem condicoes financeiras e risco domestico; tecnologia, consumo e growth tendem a ter maior sensibilidade a juros e revisoes de expectativas. Essas interpretacoes sao mecanismos economicos plausiveis, nao identificacao causal.
 
-![Comparacao dos grupos](../outputs/figures/core_vs_high_vol_comparison.png)
+![Comparacao dos grupos](../figures/core_vs_high_vol_comparison.png)
 
 ## 10. Eventos de resultados
 
 O arquivo manual nao continha eventos utilizaveis. A pipeline foi executada sem atribuir datas de resultados nao verificadas.
 
-![Eventos](../outputs/figures/event_window_volatility.png)
+![Eventos](../figures/event_window_volatility.png)
 
 ## 11. Implicacoes para gestao de risco
 

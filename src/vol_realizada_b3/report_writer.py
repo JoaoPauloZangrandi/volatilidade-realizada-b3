@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -100,8 +99,10 @@ def build_report(config: dict[str, Any]) -> str:
 
     return f"""# {config['project']['title']}
 
-**Aluno:** {config['project']['student_name']}  
-**Instituicao:** {config['project']['institution']}  
+**Aluno:** {config['project']['student_name']}
+
+**Instituicao:** {config['project']['institution']}
+
 **Data de geracao:** {datetime.now():%Y-%m-%d}
 
 ## 1. Introducao
@@ -207,8 +208,8 @@ Extensoes naturais incluem dados tick-by-tick da B3, comparacao entre 1, 5 e 15 
 - Andersen, Bollerslev, Diebold e Labys (2003), realized volatility.
 - Barndorff-Nielsen e Shephard (2004, 2006), bipower variation e testes de jumps.
 - Bollerslev (1986), GARCH.
-- Documentacao do pacote `arch`.
-- Documentacao do `yfinance`.
+- Documentacao do pacote `arch`: https://bashtage.github.io/arch/
+- Documentacao do `yfinance`: https://ranaroussi.github.io/yfinance/
 
 ## Checklist da Rubrica
 
@@ -250,6 +251,54 @@ O maior nivel medio de volatilidade realizada anualizada foi de **{top['ticker']
 """
 
 
+def _build_readme_note(config: dict[str, Any]) -> str:
+    coverage = pd.read_csv(
+        PROJECT_ROOT / "outputs" / "tables" / "data_coverage_by_ticker.csv"
+    )
+    included = coverage.loc[coverage["status"].eq("included"), "ticker"]
+    excluded = coverage.loc[coverage["status"].eq("excluded")]
+    excluded_lines = "\n".join(
+        f"- {row.ticker}: {row.razao_exclusao}"
+        for row in excluded.itertuples()
+    ) or "- Nenhum ticker excluido."
+    return f"""# Trabalho - Volatilidade Realizada B3
+
+## Objetivo
+
+Estimar volatilidade realizada, separar variacao continua e jumps, comparar ativos liquidos com growth/high-vol e discutir gestao de risco.
+
+## Repositorio
+
+`https://github.com/JoaoPauloZangrandi/volatilidade-realizada-b3`
+
+## Amostra executada
+
+Incluidos: {_list_tickers(included)}.
+
+Excluidos:
+
+{excluded_lines}
+
+## Execucao
+
+```powershell
+.\\.venv\\Scripts\\Activate.ps1
+python scripts/run_all.py
+```
+
+## Entregaveis
+
+- Relatorio: `outputs/report/relatorio.md`.
+- Slides: `outputs/slides/trabalho_volatilidade_realizada_b3.pptx`.
+- Tabelas: `outputs/tables/`.
+- Figuras: `outputs/figures/`.
+
+## Limitacao central
+
+O historico intradiario do Yahoo Finance e curto. GARCH e jumps devem ser interpretados junto com cobertura e liquidez.
+"""
+
+
 def run_report_writer(
     config: dict[str, Any] | None = None,
 ) -> Path:
@@ -260,12 +309,21 @@ def run_report_writer(
     report_path.write_text(content, encoding="utf-8")
     output_path = PROJECT_ROOT / "outputs" / "report" / "relatorio.md"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(report_path, output_path)
+    output_content = content.replace(
+        "../outputs/figures/",
+        "../figures/",
+    )
+    output_path.write_text(output_content, encoding="utf-8")
 
     obsidian_path = config["project"].get("obsidian_path")
     write_text_targets(
         "Interpretação Econômica.md",
         _build_interpretation_note(),
+        obsidian_path,
+    )
+    write_text_targets(
+        "README - Trabalho Volatilidade Realizada B3.md",
+        _build_readme_note(config),
         obsidian_path,
     )
     log_content = f"""# Log de Execucao
@@ -279,4 +337,3 @@ def run_report_writer(
 """
     write_text_targets("Log de Execução.md", log_content, obsidian_path)
     return report_path
-

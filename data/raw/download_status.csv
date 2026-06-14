@@ -1,0 +1,16 @@
+ticker,status,source_status,rows,first_datetime,last_datetime,error,raw_file
+PETR4.SA,available,existing_file,4953,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\petr4_sa_5m.csv
+VALE3.SA,available,existing_file,4955,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\vale3_sa_5m.csv
+ITUB4.SA,available,existing_file,4960,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\itub4_sa_5m.csv
+BBDC4.SA,available,existing_file,4949,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\bbdc4_sa_5m.csv
+B3SA3.SA,available,existing_file,4931,2026-03-17 13:05:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\b3sa3_sa_5m.csv
+WEGE3.SA,available,existing_file,4950,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\wege3_sa_5m.csv
+ABEV3.SA,available,existing_file,4956,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\abev3_sa_5m.csv
+TOTS3.SA,available,existing_file,4941,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\tots3_sa_5m.csv
+LWSA3.SA,available,existing_file,4963,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\lwsa3_sa_5m.csv
+MGLU3.SA,available,existing_file,4944,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\mglu3_sa_5m.csv
+BHIA3.SA,available,existing_file,4955,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\bhia3_sa_5m.csv
+CASH3.SA,available,existing_file,4952,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\cash3_sa_5m.csv
+CVCB3.SA,available,existing_file,4957,2026-03-17 13:00:00+00:00,2026-06-12 19:50:00+00:00,,data\raw\cvcb3_sa_5m.csv
+AZUL4.SA,unavailable,download_failed,0,,,download vazio,
+VIIA3.SA,unavailable,download_failed,0,,,download vazio,

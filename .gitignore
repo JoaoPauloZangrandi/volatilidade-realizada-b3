@@ -1,10 +1,12 @@
 .venv/
 **/__pycache__/
 .pytest_cache/
+pytest-cache-files-*/
 outputs/test_tmp/
 .ipynb_checkpoints/
 outputs/logs/*.log
 *.pyc
+*.egg-info/
 .env
 .DS_Store
 Thumbs.db

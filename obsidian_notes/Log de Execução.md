@@ -1,9 +1,8 @@
 # Log de Execucao
 
-## 2026-06-14
+## 2026-06-14 17:44
 
-- Repositorio remoto criado.
-- Repositorio local inicializado na branch `feature/trabalho-volatilidade-realizada-b3`.
-- Ambiente virtual criado com Python 3.12.
-- Estrutura inicial, configuracao e documentacao criadas.
-
+- Pipeline de dados, medidas, jumps, GARCH, tabelas e graficos executada.
+- Relatorio atualizado em `report/relatorio.md`.
+- Slides preparados em `outputs/slides/`.
+- Resultados usados nas notas sao observados, sem dados sinteticos.

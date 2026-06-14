@@ -1,0 +1,12 @@
+ticker,mean_rvol_annualized,jump_day_percentage,mean_jump_share,alpha_plus_beta,grupo,rank_mean_realized_volatility,rank_jump_frequency,rank_mean_jump_share,rank_garch_persistence,interpretation
+CASH3.SA,0.5440761355976031,0.38333333333333336,0.21640849739025622,0.868914012766817,high_vol_growth_candidate,1.0,1.0,1.0,8.0,volatilidade acima da mediana; maior incidencia relativa de jumps; grupo high_vol_growth_candidate
+LWSA3.SA,0.5092285584862309,0.36666666666666664,0.19064845104520184,0.9931310652892432,high_vol_growth_candidate,2.0,2.0,2.0,2.0,volatilidade acima da mediana; maior incidencia relativa de jumps; grupo high_vol_growth_candidate
+MGLU3.SA,0.4283202475754732,0.11666666666666667,0.11930255546417363,0.501927782356487,high_vol_growth_candidate,3.0,8.0,5.0,9.0,volatilidade acima da mediana; menor incidencia relativa de jumps; grupo high_vol_growth_candidate
+TOTS3.SA,0.36236581992725636,0.16666666666666666,0.13003142000906384,0.999999995829248,core_liquid,4.0,3.0,3.0,1.0,volatilidade acima da mediana; maior incidencia relativa de jumps; grupo core_liquid
+B3SA3.SA,0.32323317712547206,0.08333333333333333,0.08042574779886276,0.919203512490246,core_liquid,5.0,9.0,8.0,7.0,volatilidade acima da mediana; menor incidencia relativa de jumps; grupo core_liquid
+WEGE3.SA,0.2738393203035362,0.13333333333333333,0.0748758689829807,0.0166284019084208,core_liquid,6.0,6.0,10.0,11.0,volatilidade acima da mediana; maior incidencia relativa de jumps; grupo core_liquid
+PETR4.SA,0.24869171770418777,0.16666666666666666,0.1245211845587535,0.9795049375808044,core_liquid,7.0,3.0,4.0,5.0,volatilidade abaixo da mediana; maior incidencia relativa de jumps; grupo core_liquid
+BBDC4.SA,0.219377970140738,0.13333333333333333,0.09805943816618873,0.9906979709741012,core_liquid,8.0,6.0,7.0,4.0,volatilidade abaixo da mediana; maior incidencia relativa de jumps; grupo core_liquid
+ABEV3.SA,0.21368892491803212,0.16666666666666666,0.11567763553895154,0.9417503331908312,core_liquid,9.0,3.0,6.0,6.0,volatilidade abaixo da mediana; maior incidencia relativa de jumps; grupo core_liquid
+VALE3.SA,0.2134291012356745,0.03333333333333333,0.07950648352357774,0.3552048081820422,core_liquid,10.0,11.0,9.0,10.0,volatilidade abaixo da mediana; menor incidencia relativa de jumps; grupo core_liquid
+ITUB4.SA,0.20312130736614617,0.05,0.06826701015488883,0.9925637906658562,core_liquid,11.0,10.0,11.0,3.0,volatilidade abaixo da mediana; menor incidencia relativa de jumps; grupo core_liquid
