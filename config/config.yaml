@@ -1,0 +1,62 @@
+project:
+  title: "Volatilidade Realizada com Dados Intradiarios: Evidencias para Acoes da B3"
+  student_name: "Joao Paulo Zangrandi"
+  institution: "FGV EESP"
+  obsidian_path: "C:/Users/joaoz/OneDrive/Documentos/AI-OS Joao/02_Areas/FGV EESP/Programação/Trabalho - Volatilidade Realizada B3"
+
+tickers:
+  core_liquid:
+    - PETR4.SA
+    - VALE3.SA
+    - ITUB4.SA
+    - BBDC4.SA
+    - B3SA3.SA
+    - WEGE3.SA
+    - ABEV3.SA
+    - TOTS3.SA
+  high_vol_growth_candidates:
+    - LWSA3.SA
+    - MGLU3.SA
+    - BHIA3.SA
+    - CASH3.SA
+    - CVCB3.SA
+    - AZUL4.SA
+    - VIIA3.SA
+
+data:
+  source: yfinance
+  period: 60d
+  interval: 5m
+  timezone: America/Sao_Paulo
+  market_open: "10:00"
+  market_close: "17:55"
+  resample_interval: "5min"
+
+sample_selection:
+  min_valid_days: 30
+  min_avg_candle_coverage: 0.70
+  min_intraday_returns_per_day: 40
+  max_stale_price_share: 0.50
+  min_positive_volume_share: 0.10
+  require_positive_prices: true
+
+volatility:
+  annualization_days: 252
+  jump_test_alpha: 0.99
+  min_intraday_obs_per_day: 40
+
+garch:
+  p: 1
+  q: 1
+  distribution: normal
+  min_daily_observations: 30
+
+event_analysis:
+  enabled: true
+  event_window_days: [-1, 0, 1]
+
+outputs:
+  save_figures: true
+  save_tables: true
+  build_report: true
+  build_slides: true
