@@ -1,0 +1,11 @@
+pandas<3.0,>=2.2
+numpy<3.0,>=1.26
+scipy<2.0,>=1.12
+statsmodels<1.0,>=0.14
+arch<9.0,>=7.0
+yfinance<1.0,>=0.2.54
+matplotlib<4.0,>=3.8
+python-pptx<2.0,>=1.0
+PyYAML<7.0,>=6.0
+openpyxl<4.0,>=3.1
+tqdm<5.0,>=4.66

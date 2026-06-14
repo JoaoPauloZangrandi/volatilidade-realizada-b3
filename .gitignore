@@ -1,10 +1,10 @@
 .venv/
 **/__pycache__/
 .pytest_cache/
+outputs/test_tmp/
 .ipynb_checkpoints/
 outputs/logs/*.log
 *.pyc
 .env
 .DS_Store
 Thumbs.db
-
