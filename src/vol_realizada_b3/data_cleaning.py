@@ -21,6 +21,53 @@ def _parse_market_time(value: str) -> time:
     return pd.Timestamp(value).time()
 
 
+def _minutes_since_midnight(values: pd.Series) -> pd.Series:
+    """Converte timestamps timezone-aware em minutos desde meia-noite."""
+    return values.dt.hour * 60 + values.dt.minute
+
+
+def infer_effective_market_close(
+    data: pd.DataFrame,
+    configured_close: str,
+    min_support_share: float = 0.80,
+) -> str:
+    """Infere o último horário intradiário sustentado pela fonte.
+
+    O fechamento configurado funciona como teto. O horário efetivo é o último
+    minuto observado em pelo menos ``min_support_share`` dos ticker-dias, o que
+    evita prolongar a grade com preços carregados quando a fonte deixa de
+    fornecer candles antes do limite nominal.
+    """
+    if data.empty:
+        return configured_close
+    if not 0 < min_support_share <= 1:
+        raise ValueError("min_support_share deve estar no intervalo (0, 1]")
+
+    daily_last = (
+        data.groupby(["ticker", data["datetime"].dt.date])["datetime"]
+        .max()
+        .reset_index(drop=True)
+    )
+    last_minutes = _minutes_since_midnight(daily_last)
+    configured_time = _parse_market_time(configured_close)
+    configured_minutes = configured_time.hour * 60 + configured_time.minute
+    candidates = sorted(
+        minute
+        for minute in last_minutes.dropna().astype(int).unique()
+        if minute <= configured_minutes
+    )
+    supported = [
+        minute
+        for minute in candidates
+        if float(last_minutes.ge(minute).mean()) >= min_support_share
+    ]
+    if not supported:
+        return configured_close
+
+    selected = max(supported)
+    return f"{selected // 60:02d}:{selected % 60:02d}"
+
+
 def normalize_datetime(
     values: pd.Series,
     timezone: str,
@@ -138,9 +185,27 @@ def synchronize_intraday(
     market_open: str = "10:00",
     market_close: str = "17:55",
     interval: str = "5min",
+    infer_market_close: bool = True,
+    min_close_support_share: float = 0.80,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Sincroniza cada ticker-dia e aplica forward-fill apenas no mesmo dia."""
     clean = clean_price_frame(data, timezone, market_open, market_close)
+    effective_market_close = (
+        infer_effective_market_close(
+            clean,
+            configured_close=market_close,
+            min_support_share=min_close_support_share,
+        )
+        if infer_market_close
+        else market_close
+    )
+    if effective_market_close != market_close:
+        LOGGER.info(
+            "Fechamento efetivo inferido em %s (teto configurado: %s; suporte: %.0f%%)",
+            effective_market_close,
+            market_close,
+            100 * min_close_support_share,
+        )
     clean["date_key"] = clean["datetime"].dt.date
 
     synchronized_parts: list[pd.DataFrame] = []
@@ -150,9 +215,11 @@ def synchronize_intraday(
             group,
             timezone=timezone,
             market_open=market_open,
-            market_close=market_close,
+            market_close=effective_market_close,
             interval=interval,
         )
+        quality["configured_market_close"] = market_close
+        quality["effective_market_close"] = effective_market_close
         synchronized_parts.append(synchronized)
         quality_rows.append(quality)
 
@@ -217,6 +284,8 @@ def run_cleaning(
         market_open=settings["market_open"],
         market_close=settings["market_close"],
         interval=settings["resample_interval"],
+        infer_market_close=settings.get("infer_effective_market_close", True),
+        min_close_support_share=settings.get("min_close_support_share", 0.80),
     )
     interim_dir = PROJECT_ROOT / "data" / "interim"
     save_csv(synchronized, interim_dir / "intraday_synchronized.csv")
@@ -236,4 +305,3 @@ def run_cleaning(
     )
     save_csv(audit, interim_dir / "cleaning_audit.csv")
     return synchronized, quality
-

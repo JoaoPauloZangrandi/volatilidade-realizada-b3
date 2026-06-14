@@ -6,7 +6,7 @@ O maior nivel medio de volatilidade realizada anualizada foi de **CASH3.SA**, co
 
 ## Core versus growth/high-vol
 
-O grupo complementar apresentou volatilidade realizada media maior: 49.4%, contra 25.7% no core (razao 1.92). A frequencia de jumps foi 28.9% no complementar e 11.7% no core.
+O grupo complementar apresentou volatilidade realizada media maior: 49.4%, contra 25.7% no core (razao 1.92). A frequencia de jumps foi 27.2% no complementar e 11.0% no core.
 
 ## Leitura de risco
 

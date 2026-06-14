@@ -24,14 +24,14 @@ Foram exigidos pelo menos 30 dias validos, cobertura media minima de 70%, no min
 
 ### Tickers excluidos
 
-- BHIA3.SA: precos parados 58.5% acima do maximo
-- CVCB3.SA: precos parados 57.8% acima do maximo
+- BHIA3.SA: precos parados 51.9% acima do maximo
+- CVCB3.SA: precos parados 51.1% acima do maximo
 - AZUL4.SA: download vazio
 - VIIA3.SA: download vazio
 
 ## 4. Tratamento e construcao dos retornos
 
-Os registros foram ordenados, desduplicados, convertidos para `America/Sao_Paulo` e restritos a 10:00-17:55. Cada ticker-dia foi sincronizado em grade regular de cinco minutos. O ultimo preco de cada intervalo foi usado; o forward-fill ocorreu apenas dentro do mesmo dia. O primeiro retorno de cada dia foi removido, evitando retornos entre o fechamento anterior e a abertura seguinte.
+Os registros foram ordenados, desduplicados, convertidos para `America/Sao_Paulo` e inicialmente limitados ao teto configurado de 10:00-17:55. Como a fonte sustentou regularmente os candles apenas ate 16:50, o pipeline inferiu esse fechamento efetivo com suporte minimo de 80% dos ticker-dias. A grade final possui 83 candles de cinco minutos e evita carregar artificialmente o ultimo preco por uma hora sem observacoes. O forward-fill ocorreu apenas dentro do mesmo dia. O primeiro retorno de cada dia foi removido, evitando retornos entre o fechamento anterior e a abertura seguinte.
 
 ## 5. Metodologia
 
@@ -55,7 +55,7 @@ As series mostram variacao temporal e episodios de clustering. A matriz de corre
 
 ## 7. Jumps
 
-O ativo com maior frequencia estimada de jump days foi **CASH3.SA**, com 38.3%. A BV ajuda a separar a variacao continua da parcela associada a movimentos descontínuos. Em ativos menos liquidos, precos parados e negociacao esparsa podem distorcer essa separacao; por isso, os filtros de qualidade antecedem o teste.
+O ativo com maior frequencia estimada de jump days foi **CASH3.SA**, com 36.7%. A BV ajuda a separar a variacao continua da parcela associada a movimentos descontínuos. Em ativos menos liquidos, precos parados e negociacao esparsa podem distorcer essa separacao; por isso, os filtros de qualidade antecedem o teste.
 
 ![RV e BV](../outputs/figures/rv_vs_bv.png)
 
@@ -67,7 +67,7 @@ A persistencia mediana alpha + beta foi 0.942. Em geral, o GARCH representa pers
 
 - ABEV3.SA: alpha+beta=0.942, correlacao GARCH-RVol=-0.055, status=ok.
 - B3SA3.SA: alpha+beta=0.919, correlacao GARCH-RVol=0.455, status=ok.
-- BBDC4.SA: alpha+beta=0.991, correlacao GARCH-RVol=0.163, status=ok.
+- BBDC4.SA: alpha+beta=0.991, correlacao GARCH-RVol=0.161, status=ok.
 - CASH3.SA: alpha+beta=0.869, correlacao GARCH-RVol=0.355, status=ok.
 - ITUB4.SA: alpha+beta=0.993, correlacao GARCH-RVol=0.131, status=ok.
 - LWSA3.SA: alpha+beta=0.993, correlacao GARCH-RVol=0.085, status=ok.
@@ -81,7 +81,7 @@ A persistencia mediana alpha + beta foi 0.942. Em geral, o GARCH representa pers
 
 ## 9. Comparacao entre ativos liquidos e growth/small caps
 
-O grupo complementar apresentou volatilidade realizada media maior: 49.4%, contra 25.7% no core (razao 1.92). A frequencia de jumps foi 28.9% no complementar e 11.7% no core.
+O grupo complementar apresentou volatilidade realizada media maior: 49.4%, contra 25.7% no core (razao 1.92). A frequencia de jumps foi 27.2% no complementar e 11.0% no core.
 
 PETR4 e VALE3 podem responder a petroleo, minerio, cambio e noticias globais; bancos refletem condicoes financeiras e risco domestico; tecnologia, consumo e growth tendem a ter maior sensibilidade a juros e revisoes de expectativas. Essas interpretacoes sao mecanismos economicos plausiveis, nao identificacao causal.
 
@@ -89,7 +89,7 @@ PETR4 e VALE3 podem responder a petroleo, minerio, cambio e noticias globais; ba
 
 ## 10. Eventos de resultados
 
-Foram avaliados 12 eventos de earnings. Na media, a RVol da janela t-1/t/t+1 foi 16.7% maior que a media dos dias normais do mesmo ativo. A frequencia media de jump days foi 25.0% nas janelas, contra 17.8% nos dias normais. A comparacao e descritiva, usa datas de uma fonte terceirizada e nao identifica causalidade.
+Foram avaliados 12 eventos de earnings. Na media, a RVol da janela t-1/t/t+1 foi 16.7% maior que a media dos dias normais do mesmo ativo. A frequencia media de jump days foi 25.0% nas janelas, contra 16.8% nos dias normais. A comparacao e descritiva, usa datas de uma fonte terceirizada e nao identifica causalidade.
 
 ![Eventos](../outputs/figures/event_window_volatility.png)
 
@@ -127,10 +127,12 @@ Extensoes naturais incluem dados tick-by-tick da B3, comparacao entre 1, 5 e 15 
 
 ## Checklist da Rubrica
 
-1. **Tratamento e organizacao:** `data_download.py`, `data_cleaning.py`, `sample_selection.py`, scripts 01-03 e `data_coverage_by_ticker.csv`.
-2. **Medidas:** RV, RVol e BV em `realized_measures.py`; resultados em `realized_measures.csv` e `realized_measures_summary.csv`.
-3. **Jumps:** JV, tripower quarticity e teste em `jumps.py`; `jump_summary.csv` e figuras de jumps.
-4. **Comparacao:** series, boxplot, ranking, correlacao e comparacao core versus growth/high-vol.
-5. **Codigo:** pacote em `src/`, YAML, logs, tratamento de erros, testes e `run_all.py`.
-6. **Analise:** interpretacao economica, conexao com teoria, GARCH e implicacoes para risco.
-7. **Apresentacao:** relatorio Markdown, figuras em alta resolucao e PowerPoint de 18 slides.
+1. **Tratamento e organizacao — 1,5 ponto:** `data_download.py`, `data_cleaning.py`, `sample_selection.py`, sessao efetiva inferida, retorno sem cruzar dias e `data_coverage_by_ticker.csv`.
+2. **Medidas — 2,0 pontos:** RV, RVol e BV em `realized_measures.py`; formulas, testes e resultados em `realized_measures.csv` e `realized_measures_summary.csv`.
+3. **Jumps — 1,5 ponto:** JV, jump share, tripower quarticity e teste BNS em `jumps.py`; `jump_summary.csv` e tres figuras especificas.
+4. **Comparacao — 1,5 ponto:** series, boxplot, ranking, correlacao, comparacao core versus growth/high-vol e janelas de earnings.
+5. **Codigo — 1,0 ponto:** pacote em `src/`, YAML, logs, tratamento de erros, testes, `run_all.py` e `Codigo Final.py` autocontido.
+6. **Analise — 2,0 pontos:** interpretacao economica apos os graficos no HTML, conexao com teoria, GARCH, limitacoes e implicacoes para risco.
+7. **Apresentacao — 0,5 ponto:** Relatorio Final HTML autocontido, mini-paper, figuras em alta resolucao e PowerPoint de 18 slides.
+
+**Observacoes gerais:** ha mais de dois entregaveis; a base real esta incorporada ao Codigo Final; a pipeline foi testada ponta a ponta; texto e codigo foram produzidos para este projeto e a literatura utilizada esta citada.

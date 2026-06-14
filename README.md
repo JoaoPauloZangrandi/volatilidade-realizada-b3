@@ -7,12 +7,13 @@ Projeto do trabalho final da FGV EESP sobre volatilidade realizada, bipower vari
 Os dois arquivos abaixo sao autocontidos e foram preparados para serem avaliados
 sem acesso ao restante do repositorio:
 
-- [`Relatorio Final.html`](Relatório%20Final.html): relatorio completo com 31
-  figuras embutidas, 12 tabelas, metodologia, interpretacao, earnings,
+- [`Relatorio Final.html`](Relatório%20Final.html): relatorio completo com 23
+  figuras embutidas, explicacao especifica apos cada grafico, 12 tabelas,
+  metodologia, interpretacao, auditoria da rubrica, earnings,
   referencias e um ZIP interno contendo bases e tabelas.
 - [`Codigo Final.py`](Código%20Final.py): pipeline unica para Google Colab, com
-  3.200+ linhas legiveis, snapshot comprimido das bases reais, todos os modulos
-  analiticos, geracao dos outputs e testes internos.
+  snapshot comprimido das bases reais, todos os modulos analiticos, geracao dos
+  outputs e testes internos.
 
 ## Status
 
@@ -51,12 +52,12 @@ Principais resultados observados:
 
 - CASH3 apresentou a maior RVol anualizada media: 54,4%.
 - O grupo core apresentou RVol anualizada media de 25,7%; o complementar, 49,4%.
-- A frequencia media de jump days foi 11,7% no core e 28,9% no complementar.
-- CASH3 e LWSA3 tiveram as maiores frequencias individuais de jumps, 38,3% e 36,7%.
+- A frequencia media de jump days foi 11,0% no core e 27,2% no complementar.
+- CASH3 e LWSA3 tiveram as maiores frequencias individuais de jumps, 36,7% e 35,0%.
 - Os 11 modelos GARCH foram estimados, mas a amostra de 59 retornos diarios exige cautela.
 - Foram analisados 12 eventos de earnings dentro da janela. A RVol media em
   t-1/t/t+1 ficou 16,7% acima dos dias normais; jump days foram 25,0% nas
-  janelas contra 17,8% fora delas. A evidencia e descritiva, nao causal.
+  janelas contra 16,8% fora delas. A evidencia e descritiva, nao causal.
 
 ## Instalacao no Windows
 
@@ -127,7 +128,10 @@ Para exportar os slides em PDF no Windows, abra o `.pptx` no PowerPoint e use `A
 
 ## Eventos
 
-Preencha `data/manual/events_earnings.csv` conforme `data/manual/README.md`. Sem eventos, a pipeline gera uma tabela vazia com esquema valido e nao inventa datas.
+O arquivo `data/manual/events_earnings.csv` contem 12 datas obtidas via historico
+de earnings do `yfinance` e documenta a fonte. Ele pode ser revisado ou
+substituido por datas oficiais de RI. Sem eventos, a pipeline gera uma tabela
+vazia com esquema valido e nao inventa datas.
 
 ## Checklist de entregaveis
 
@@ -136,22 +140,22 @@ Preencha `data/manual/events_earnings.csv` conforme `data/manual/README.md`. Sem
 - [x] RV, RVol, BV, JV e teste de jumps.
 - [x] GARCH(1,1) com retornos diarios.
 - [x] Selecao automatica da amostra.
-- [x] Analise opcional de eventos, vazia sem inventar datas.
+- [x] Analise de 12 eventos, com pipeline robusta a arquivo vazio.
 - [x] Tabelas e graficos.
 - [x] Relatorio em Markdown.
 - [x] Slides em PowerPoint.
 - [x] Notas no Obsidian.
-- [x] Nove testes e pipeline completo.
+- [x] Dez testes e pipeline completo.
 
 ## Checklist da Rubrica
 
-1. **Tratamento e organizacao dos dados:** `data_cleaning.py`, scripts 01-03 e tabela de cobertura.
-2. **Medidas de volatilidade:** `realized_measures.py`, RV, RVol e BV, com testes unitarios.
-3. **Jumps:** `jumps.py`, JV, tripower quarticity, estatistica BNS, tabela e figuras.
-4. **Analise comparativa:** rankings, series temporais e comparacao entre grupos.
-5. **Qualidade do codigo:** pacote em `src/`, configuracao YAML, logs, testes e pipeline unica.
-6. **Qualidade da analise:** relatorio conecta resultados, teoria, limitacoes e risco.
-7. **Apresentacao:** PowerPoint, mini-paper e graficos em alta resolucao.
+1. **Tratamento e organizacao dos dados — 1,5:** limpeza, sessao efetiva, sincronizacao, retornos sem cruzar dias e auditoria de cobertura.
+2. **Medidas de volatilidade — 2,0:** RV, RVol e BV implementadas, exportadas e testadas.
+3. **Jumps — 1,5:** JV, tripower quarticity, estatistica BNS, tabela, graficos e interpretacao.
+4. **Analise comparativa — 1,5:** ativos, periodos, grupos, correlacoes e eventos.
+5. **Qualidade do codigo — 1,0:** pacote modular, YAML, logs, testes, pipeline unica e Codigo Final autocontido.
+6. **Qualidade da analise — 2,0:** teoria, leitura apos cada grafico, limitacoes e implicacoes para risco.
+7. **Apresentacao — 0,5:** PowerPoint, HTML autocontido, mini-paper e graficos em alta resolucao.
 
 ## Referencias de software
 

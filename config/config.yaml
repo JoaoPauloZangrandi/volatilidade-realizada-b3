@@ -31,6 +31,8 @@ data:
   market_open: "10:00"
   market_close: "17:55"
   resample_interval: "5min"
+  infer_effective_market_close: true
+  min_close_support_share: 0.80
 
 sample_selection:
   min_valid_days: 30

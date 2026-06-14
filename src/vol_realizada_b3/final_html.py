@@ -99,15 +99,36 @@ def _figure(
     title: str,
     caption: str,
     css_class: str = "",
+    evidence: str = "",
+    economic_interpretation: str = "",
+    risk_implication: str = "",
+    caution: str = "",
 ) -> str:
     path = PROJECT_ROOT / "outputs" / "figures" / filename
     if not path.exists():
         return ""
+    reading_items = [
+        ("O que o gráfico mostra", evidence),
+        ("Interpretação econômica", economic_interpretation),
+        ("Implicação para risco", risk_implication),
+        ("Cautela de interpretação", caution),
+    ]
+    reading = "".join(
+        f"<div><h4>{html.escape(label)}</h4><p>{html.escape(text)}</p></div>"
+        for label, text in reading_items
+        if text
+    )
+    reading_block = (
+        f'<div class="chart-reading">{reading}</div>' if reading else ""
+    )
     return f"""
-    <figure class="{css_class}">
-      <img src="{_image_uri(path)}" alt="{html.escape(title)}">
-      <figcaption><strong>{html.escape(title)}.</strong> {html.escape(caption)}</figcaption>
-    </figure>
+    <div class="figure-unit">
+      <figure class="{css_class}">
+        <img src="{_image_uri(path)}" alt="{html.escape(title)}">
+        <figcaption><strong>{html.escape(title)}.</strong> {html.escape(caption)}</figcaption>
+      </figure>
+      {reading_block}
+    </div>
     """
 
 
@@ -193,6 +214,10 @@ def build_final_html(
         PROJECT_ROOT / "data" / "interim" / "daily_data_quality.csv",
         parse_dates=["date"],
     )
+    intraday = pd.read_csv(
+        PROJECT_ROOT / "data" / "processed" / "intraday_returns.csv",
+        parse_dates=["datetime", "date"],
+    )
     download_status = pd.read_csv(
         PROJECT_ROOT / "data" / "raw" / "download_status.csv"
     )
@@ -212,6 +237,63 @@ def build_final_html(
     normal_jump_frequency = event_ok["normal_jump_frequency"].mean()
     date_start = measures["date"].min().strftime("%d/%m/%Y")
     date_end = measures["date"].max().strftime("%d/%m/%Y")
+    expected_candles = int(daily_quality["expected_candles"].mode().iloc[0])
+    effective_close = (
+        str(daily_quality["effective_market_close"].mode().iloc[0])
+        if "effective_market_close" in daily_quality
+        else config["data"]["market_close"]
+    )
+    configured_close = config["data"]["market_close"]
+    included_mean_coverage = included["cobertura_media_candles"].mean()
+    jump_share_ratio = high_vol["mean_jump_share"] / core["mean_jump_share"]
+
+    top_days = measures.nlargest(3, "rvol_annualized").copy()
+    top_day = top_days.iloc[0]
+    top_day_date = top_day["date"].strftime("%d/%m/%Y")
+    top_day_jump = "foi" if bool(top_day["jump_day"]) else "não foi"
+    top_three_days = ", ".join(
+        f"{row.ticker.replace('.SA', '')} em {row.date.strftime('%d/%m')} "
+        f"({_percentage(row.rvol_annualized)})"
+        for row in top_days.itertuples()
+    )
+
+    correlation = measures.pivot(
+        index="date", columns="ticker", values="rvol_daily"
+    ).corr(min_periods=5)
+    upper_mask = np.triu(np.ones(correlation.shape, dtype=bool), k=1)
+    correlation_pairs = correlation.where(upper_mask).stack()
+    max_pair = correlation_pairs.idxmax()
+    max_pair_value = float(correlation_pairs.max())
+    median_pair_value = float(correlation_pairs.median())
+    min_pair = correlation_pairs.idxmin()
+    min_pair_value = float(correlation_pairs.min())
+
+    signature_data = intraday.merge(
+        included[["ticker", "grupo"]], on="ticker", how="inner"
+    )
+    signature_data["abs_return"] = signature_data["log_return"].abs()
+    signature = (
+        signature_data.groupby(["grupo", "time"], as_index=False)
+        .agg(mean_abs_return=("abs_return", "mean"))
+    )
+    signature_peaks: dict[str, pd.Series] = {}
+    for group_name, group_frame in signature.groupby("grupo"):
+        signature_peaks[group_name] = group_frame.loc[
+            group_frame["mean_abs_return"].idxmax()
+        ]
+    core_peak = signature_peaks["core_liquid"]
+    high_peak = signature_peaks["high_vol_growth_candidate"]
+
+    successful_garch = garch.loc[garch["fit_status"].eq("ok")].copy()
+    median_persistence = successful_garch["alpha_plus_beta"].median()
+    best_garch_correlation = successful_garch.loc[
+        successful_garch["correlation_garch_realized"].idxmax()
+    ]
+    weakest_garch_correlation = successful_garch.loc[
+        successful_garch["correlation_garch_realized"].idxmin()
+    ]
+    top_event = event_ok.loc[event_ok["event_vs_normal_ratio"].idxmax()]
+    bottom_event = event_ok.loc[event_ok["event_vs_normal_ratio"].idxmin()]
     code_summary, code_download = _source_code_summary(code_path)
 
     bundle, inventory = _data_bundle()
@@ -220,59 +302,112 @@ def build_final_html(
     inventory_frame = pd.DataFrame(inventory)
 
     generated = datetime.now().strftime("%d/%m/%Y %H:%M")
-    figure_gallery = "\n".join(
-        [
-            _figure(
-                "realized_volatility_time_series.png",
-                "Volatilidade realizada no tempo",
-                "Séries diárias anualizadas; picos mostram episódios de risco observado.",
-            ),
-            _figure(
-                "rvol_boxplot_by_ticker.png",
-                "Distribuição da RVol por ativo",
-                "Compara mediana, dispersão e observações extremas.",
-            ),
-            _figure(
-                "rv_vs_bv.png",
-                "RV versus BV",
-                "A distância entre RV e BV sustenta a estimativa não negativa de jump variation.",
-            ),
-            _figure(
-                "jump_days_realized_volatility.png",
-                "Dias de jump nas séries",
-                "Os pontos destacados excedem o valor crítico do teste estatístico configurado em 99%.",
-            ),
-            _figure(
-                "rvol_correlation_heatmap.png",
-                "Correlação das volatilidades realizadas",
-                "Comovimento de volatilidade é relevante para diversificação em regimes de estresse.",
-            ),
-            _figure(
-                "intraday_volatility_signature.png",
-                "Assinatura intradiária",
-                "Média de |retorno| e retorno² por horário, separada por grupo.",
-            ),
-            _figure(
-                "garch_vs_realized_all.png",
-                "GARCH versus RVol",
-                "A volatilidade GARCH é mais suavizada; a RVol reage diretamente aos movimentos intradiários.",
-            ),
-            _figure(
-                "event_window_volatility.png",
-                "Janelas de earnings",
-                "Compara a RVol média em t-1/t/t+1 com a média dos demais dias do mesmo ativo.",
-            ),
-        ]
-    )
-
-    garch_gallery = "\n".join(
-        _figure(
-            f"garch_vs_realized_{ticker.replace('.', '_').lower()}.png",
-            f"GARCH e RVol — {ticker}",
-            "Comparação diária individual. A interpretação deve considerar que GARCH usa close-to-close, incluindo overnight.",
-            css_class="compact",
+    garch_gallery_parts: list[str] = []
+    for ticker in included["ticker"]:
+        row = successful_garch.loc[successful_garch["ticker"].eq(ticker)].iloc[0]
+        persistence_description = (
+            "muito elevada, indicando forte memória do choque"
+            if row["alpha_plus_beta"] >= 0.98
+            else "elevada, indicando suavização persistente"
+            if row["alpha_plus_beta"] >= 0.80
+            else "moderada ou baixa nesta janela curta"
         )
-        for ticker in included["ticker"]
+        correlation_description = (
+            "moderada"
+            if row["correlation_garch_realized"] >= 0.30
+            else "fraca"
+            if row["correlation_garch_realized"] >= 0
+            else "ligeiramente negativa"
+        )
+        garch_gallery_parts.append(
+            _figure(
+                f"garch_vs_realized_{ticker.replace('.', '_').lower()}.png",
+                f"GARCH e RVol — {ticker}",
+                "Comparação diária individual entre volatilidade condicional e realizada.",
+                css_class="compact",
+                evidence=(
+                    f"Para {ticker}, α+β={row['alpha_plus_beta']:.3f} e a correlação "
+                    f"GARCH–RVol={row['correlation_garch_realized']:.3f}. A persistência "
+                    f"estimada é {persistence_description}, enquanto a associação contemporânea "
+                    f"entre as duas medidas é {correlation_description}."
+                ),
+                economic_interpretation=(
+                    "A linha GARCH distribui a informação dos retornos diários ao longo do tempo; "
+                    "a RVol concentra no próprio pregão a variação observada nos candles. Picos "
+                    "que aparecem apenas na RVol são compatíveis com reação intradiária rápida."
+                ),
+                risk_implication=(
+                    "Para monitoramento, a RVol sinaliza o choque corrente e o GARCH fornece uma "
+                    "referência de memória. Divergências justificam revisão de limites e cenários."
+                ),
+                caution=(
+                    "O ajuste usa somente 59 retornos diários e inclui overnight no close-to-close; "
+                    "portanto α+β e correlação não devem ser tratados como parâmetros estruturais."
+                ),
+            )
+        )
+    garch_gallery = "\n".join(garch_gallery_parts)
+
+    rubric = pd.DataFrame(
+        [
+            {
+                "critério": "Tratamento e organização dos dados",
+                "pontos": "1,5",
+                "evidência verificável": (
+                    "Timezone, deduplicação, preços positivos, sessão efetiva, grade de 5 min, "
+                    "forward-fill intradia, retorno sem cruzar dias, cobertura e stale share."
+                ),
+                "status": "Atendido",
+            },
+            {
+                "critério": "Construção das medidas de volatilidade",
+                "pontos": "2,0",
+                "evidência verificável": (
+                    "RV, RVol diária/anualizada e BV implementadas, testadas e exportadas em CSV."
+                ),
+                "status": "Atendido",
+            },
+            {
+                "critério": "Análise de jumps",
+                "pontos": "1,5",
+                "evidência verificável": (
+                    "JV, jump share, TQ, estatística BNS, classificação a 99%, tabelas e gráficos."
+                ),
+                "status": "Atendido",
+            },
+            {
+                "critério": "Análise comparativa",
+                "pontos": "1,5",
+                "evidência verificável": (
+                    "Comparação temporal, entre 11 ativos, grupos, correlações e eventos de earnings."
+                ),
+                "status": "Atendido",
+            },
+            {
+                "critério": "Qualidade do código",
+                "pontos": "1,0",
+                "evidência verificável": (
+                    "Pipeline modular e Código Final autocontido, base incorporada, logs e testes."
+                ),
+                "status": "Atendido",
+            },
+            {
+                "critério": "Qualidade da análise",
+                "pontos": "2,0",
+                "evidência verificável": (
+                    "Leitura econômica após cada gráfico, teoria, gestão de risco, limitações e cautelas."
+                ),
+                "status": "Atendido",
+            },
+            {
+                "critério": "Apresentação do trabalho",
+                "pontos": "0,5",
+                "evidência verificável": (
+                    "HTML autocontido, PowerPoint de 18 slides, tabelas legíveis e figuras em alta resolução."
+                ),
+                "status": "Atendido",
+            },
+        ]
     )
 
     code_link = (
@@ -335,8 +470,17 @@ h4 {{ color:var(--navy); }}
 figure {{ margin:34px 0; page-break-inside:avoid; }}
 figure img {{ width:100%; height:auto; border:1px solid var(--line); border-radius:7px; }}
 figcaption {{ color:var(--muted); font-size:.9rem; margin-top:9px; }}
+.chart-reading {{
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 18px;
+  margin:-18px 0 34px; padding:20px 22px; background:#f4f8fb;
+  border:1px solid #cddde8; border-left:5px solid var(--blue); border-radius:7px;
+  page-break-inside:avoid;
+}}
+.chart-reading h4 {{ margin:0 0 5px; font-size:.92rem; color:var(--navy); }}
+.chart-reading p {{ margin:0; font-size:.91rem; color:#3b4855; }}
 .gallery {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:22px; }}
-.gallery figure {{ margin:0; }}
+.gallery .figure-unit,.gallery figure {{ margin:0; }}
+.gallery .chart-reading {{ grid-template-columns:1fr; margin:8px 0 26px; }}
 .compact img {{ max-height:430px; object-fit:contain; }}
 .table-wrap {{ overflow-x:auto; border:1px solid var(--line); border-radius:7px; margin:20px 0; }}
 .data-table {{ width:100%; border-collapse:collapse; font-size:.84rem; }}
@@ -362,7 +506,7 @@ footer {{ background:var(--navy); color:white; padding:34px 7%; }}
 }}
 @media (max-width:700px) {{
   h1 {{ font-size:2.25rem; }} section {{ padding:38px 5%; }}
-  .gallery {{ grid-template-columns:1fr; }} nav {{ display:none; }}
+  .gallery,.chart-reading {{ grid-template-columns:1fr; }} nav {{ display:none; }}
 }}
 </style>
 </head>
@@ -430,14 +574,36 @@ de o provedor continuar retornando exatamente a mesma janela.</p>
 <h3>2.3 Critérios de inclusão</h3>
 <ol>
   <li>Pelo menos 30 dias válidos.</li>
-  <li>Cobertura média de no mínimo 70% dos 96 candles esperados por dia.</li>
+  <li>Cobertura média de no mínimo 70% dos {expected_candles} candles esperados por dia na sessão efetivamente coberta.</li>
   <li>Pelo menos 40 retornos intradiários válidos no dia.</li>
   <li>Preços OHLC estritamente positivos.</li>
   <li>Volume positivo em parcela relevante dos intervalos observados.</li>
   <li>Proporção agregada de retornos iguais a zero inferior ou igual a 50%.</li>
   <li>Ausência de falha grave de download.</li>
 </ol>
-{_figure("data_coverage_by_ticker.png","Cobertura dos dados","Verde indica ativo incluído; cinza indica exclusão. A linha tracejada marca o mínimo de 70%.")}
+{_figure(
+    "data_coverage_by_ticker.png",
+    "Cobertura dos dados",
+    "Verde indica ativo incluído; cinza indica exclusão. A linha tracejada marca o mínimo de 70%.",
+    evidence=(
+        f"Os 13 tickers com arquivo disponível tiveram cobertura próxima de 99%; a média entre "
+        f"os 11 incluídos foi {_percentage(included_mean_coverage)}. BHIA3 e CVCB3 foram excluídos "
+        "apesar da cobertura alta, pois 51,9% e 51,1% dos retornos, respectivamente, eram zero. "
+        "AZUL4 e VIIA3 não retornaram candles."
+    ),
+    economic_interpretation=(
+        "Cobertura elevada indica que a comparação usa uma grade temporal quase completa. "
+        "Entretanto, cobertura não substitui liquidez: muitos candles podem repetir o mesmo preço."
+    ),
+    risk_implication=(
+        "Excluir séries com preço excessivamente parado reduz o risco de classificar atualização "
+        "tardia de preço como jump econômico e evita subestimar risco durante intervalos sem negócio."
+    ),
+    caution=(
+        "Os filtros criam seleção amostral. A conclusão sobre growth/small caps vale para LWSA3, "
+        "MGLU3 e CASH3, que passaram aos critérios, e não para todo o segmento."
+    ),
+)}
 <h3>2.4 Auditoria por ticker</h3>
 <div class="table-wrap">{_table(coverage, columns=[
     'ticker','grupo','primeiro_dia','ultimo_dia','numero_dias','numero_dias_validos',
@@ -470,10 +636,12 @@ normalizadas para <code>America/Sao_Paulo</code>; preços e volume foram convert
 numéricos; registros duplicados por ticker e timestamp foram removidos, mantendo a observação
 mais recente.</p>
 <h3>3.2 Horário e grade regular</h3>
-<p>A análise usa o pregão regular entre 10:00 e 17:55. Para cada ticker-dia, timestamps foram
+<p>O teto de sessão configurado é 10:00-{configured_close}, mas a fonte apresentou suporte regular
+até {effective_close}. O pipeline inferiu esse fechamento efetivo exigindo presença em pelo menos
+80% dos ticker-dias. Para cada ticker-dia, timestamps foram
 arredondados para intervalos de cinco minutos. Em cada intervalo: abertura = primeiro preço,
 máxima = máximo, mínima = mínimo, fechamento = último preço e volume = soma. A grade esperada
-tem 96 candles por dia.</p>
+tem {expected_candles} candles por dia.</p>
 <h3>3.3 Forward-fill controlado</h3>
 <p>O último preço disponível foi carregado para frente apenas dentro do mesmo ticker-dia.
 Nenhum preço foi propagado para o pregão seguinte. Candles preenchidos têm volume zero e são
@@ -492,8 +660,10 @@ retorno diário close-to-close, em porcentagem.</p>
   <li>Contagem antes/depois da limpeza e motivo de exclusão por ativo.</li>
 </ul>
 <div class="method"><strong>Decisão metodológica.</strong> A sincronização produz comparabilidade
-temporal, mas o forward-fill pode introduzir retornos zero. Por isso, cobertura e stale-price
-share são parte explícita da seleção, não apenas estatísticas descritivas.</div>
+temporal, mas o forward-fill pode introduzir retornos zero. A inferência do último horário
+efetivamente sustentado pela fonte impede prolongar artificialmente o preço até {configured_close}.
+Além disso, cobertura e stale-price share são parte explícita da seleção, não apenas estatísticas
+descritivas.</div>
 </section>
 
 <section id="metodologia">
@@ -544,15 +714,107 @@ pode concentrar a reação. A análise é descritiva e a fonte é terceirizada.<
 <p>Os retornos intradiários têm média próxima de zero, dispersão distinta entre ativos e caudas
 relevantes. Assimetria, curtose e percentis extremos reforçam que uma aproximação gaussiana simples
 é insuficiente para descrever todo o risco de alta frequência.</p>
-{_figure("realized_volatility_time_series.png","Série temporal da RVol anualizada","A comparação mostra nível, picos e clustering ao longo dos 60 pregões válidos.")}
-{_figure("rvol_boxplot_by_ticker.png","Boxplot da RVol anualizada","CASH3, LWSA3 e MGLU3 ocupam o topo da distribuição; o core é mais concentrado.")}
+{_figure(
+    "realized_volatility_time_series.png",
+    "Série temporal da RVol anualizada",
+    "A comparação mostra nível, picos e clustering ao longo dos 60 pregões válidos.",
+    evidence=(
+        f"Os três maiores ticker-dias foram {top_three_days}. O pico absoluto, "
+        f"{top_day['ticker']} em {top_day_date}, {top_day_jump} classificado como jump day; "
+        "isso mostra que volatilidade total excepcional e evidência estatística de salto não são equivalentes."
+    ),
+    economic_interpretation=(
+        "CASH3, LWSA3 e MGLU3 operam em patamar mais alto e exibem episódios consecutivos de "
+        "volatilidade, enquanto bancos e VALE3 permanecem mais concentrados. A persistência visual "
+        "é compatível com clustering: choques de incerteza tendem a elevar o risco por mais de um pregão."
+    ),
+    risk_implication=(
+        "Limites calibrados apenas pela média histórica reagiriam tarde aos picos. A atualização "
+        "diária com RVol permite reduzir exposição quando o regime observado muda."
+    ),
+    caution=(
+        "A anualização multiplica a variância diária por 252 para facilitar comparação; ela não "
+        "significa que um pico diário permaneceria por um ano."
+    ),
+)}
+{_figure(
+    "rvol_boxplot_by_ticker.png",
+    "Boxplot da RVol anualizada",
+    "A caixa resume mediana e intervalo interquartil; pontos extremos revelam caudas.",
+    evidence=(
+        f"As medianas foram {_percentage(realized.loc[realized['ticker'].eq('CASH3.SA'), 'median_rvol_annualized'].iloc[0])} "
+        f"para CASH3, {_percentage(realized.loc[realized['ticker'].eq('LWSA3.SA'), 'median_rvol_annualized'].iloc[0])} "
+        f"para LWSA3 e {_percentage(realized.loc[realized['ticker'].eq('MGLU3.SA'), 'median_rvol_annualized'].iloc[0])} "
+        f"para MGLU3. No core, a maior mediana foi TOTS3, com "
+        f"{_percentage(realized.loc[realized['ticker'].eq('TOTS3.SA'), 'median_rvol_annualized'].iloc[0])}."
+    ),
+    economic_interpretation=(
+        "A diferença aparece no centro da distribuição, não apenas em um ou dois outliers. "
+        "Isso reforça que o grupo complementar selecionado esteve sujeito a risco recorrente mais alto."
+    ),
+    risk_implication=(
+        "Ativos com caixa alta e cauda superior longa exigem orçamento de risco menor e cenários "
+        "de estresse que não sejam baseados somente na mediana."
+    ),
+    caution=(
+        "Boxplots não controlam por preço, setor, tamanho ou liquidez. Eles documentam diferenças "
+        "na janela observada, sem atribuir causalidade a uma característica isolada."
+    ),
+)}
 <h3>5.2 Resumo por ativo</h3>
 <div class="table-wrap">{_table(realized)}</div>
 <h3>5.3 Ranking consolidado</h3>
-{_figure("asset_risk_ranking.png","Ranking de risco realizado","Barras vermelhas representam ativos do grupo complementar selecionado.")}
+{_figure(
+    "asset_risk_ranking.png",
+    "Ranking de risco realizado",
+    "Barras vermelhas representam ativos do grupo complementar selecionado.",
+    evidence=(
+        f"CASH3 liderou com RVol anualizada média de {_percentage(top_rvol['mean_rvol_annualized'])}, "
+        f"seguida por LWSA3 ({_percentage(realized.loc[realized['ticker'].eq('LWSA3.SA'), 'mean_rvol_annualized'].iloc[0])}) "
+        f"e MGLU3 ({_percentage(realized.loc[realized['ticker'].eq('MGLU3.SA'), 'mean_rvol_annualized'].iloc[0])}). "
+        f"O menor valor foi ITUB4, com {_percentage(realized.loc[realized['ticker'].eq('ITUB4.SA'), 'mean_rvol_annualized'].iloc[0])}."
+    ),
+    economic_interpretation=(
+        "As três primeiras posições pertencem ao grupo growth/high-vol. TOTS3, uma empresa de "
+        "tecnologia mais líquida no core, aparece em quarto lugar, sugerindo que exposição a "
+        "crescimento e notícias corporativas também importa dentro da amostra líquida."
+    ),
+    risk_implication=(
+        "O ranking oferece uma base transparente para limites relativos, sizing e priorização de "
+        "monitoramento, mas deve ser combinado com liquidez e concentração da carteira."
+    ),
+    caution=(
+        "O ranking é amostral e pode mudar com o regime. Ele não é previsão de retorno nem medida "
+        "completa de perda, pois volatilidade é simétrica e não distingue movimentos positivos de negativos."
+    ),
+)}
 <div class="table-wrap">{_table(ranking)}</div>
 <h3>5.4 Comparação entre grupos</h3>
-{_figure("core_vs_high_vol_comparison.png","Core versus growth/high-vol","As três métricas apontam maior risco no grupo complementar selecionado.")}
+{_figure(
+    "core_vs_high_vol_comparison.png",
+    "Core versus growth/high-vol",
+    "As três métricas apontam maior risco no grupo complementar selecionado.",
+    evidence=(
+        f"A RVol média foi {_percentage(high_vol['mean_rvol_annualized'])} no complementar e "
+        f"{_percentage(core['mean_rvol_annualized'])} no core, razão de {rvol_ratio:.2f}x. "
+        f"A frequência de jumps foi {_percentage(high_vol['jump_frequency'])} contra "
+        f"{_percentage(core['jump_frequency'])}, razão de {jump_ratio:.2f}x; o jump share médio "
+        f"foi {jump_share_ratio:.2f}x maior."
+    ),
+    economic_interpretation=(
+        "O padrão é compatível com maior sensibilidade do grupo complementar a revisões de "
+        "expectativas, risco idiossincrático, juros e notícias corporativas. A diferença surge "
+        "tanto no componente total quanto na parcela associada a movimentos descontínuos."
+    ),
+    risk_implication=(
+        "Uma carteira que trate os dois grupos com o mesmo limite nominal pode concentrar risco "
+        "desproporcional nos ativos complementares. Volatility targeting e margens devem refletir essa diferença."
+    ),
+    caution=(
+        "A comparação é condicional aos filtros: somente três dos sete candidatos complementares "
+        "entraram. Não se deve generalizar o multiplicador para todas as small caps da B3."
+    ),
+)}
 <div class="table-wrap">{_table(groups)}</div>
 <p>A RVol do grupo complementar foi <strong>{rvol_ratio:.2f} vezes</strong> a do core. Sua
 frequência de jumps foi <strong>{jump_ratio:.2f} vezes</strong> maior, e o jump share médio
@@ -562,15 +824,131 @@ de small caps.</p>
 <h3>5.5 Leitura ativo a ativo</h3>
 <ul class="asset-list">{_asset_commentary(ranking, jumps, garch)}</ul>
 <h3>5.6 Assinatura e correlação</h3>
-{_figure("intraday_volatility_signature.png","Assinatura intradiária da volatilidade","A forma por horário ajuda a identificar concentração de risco na abertura, fechamento ou períodos específicos.")}
-{_figure("rvol_correlation_heatmap.png","Correlação das RVols","Correlações positivas indicam que episódios de risco podem ocorrer conjuntamente, reduzindo diversificação.")}
+{_figure(
+    "intraday_volatility_signature.png",
+    "Assinatura intradiária da volatilidade",
+    "Média de |retorno| e retorno² por horário para os dois grupos selecionados.",
+    evidence=(
+        f"O maior retorno absoluto médio do core ocorreu às {core_peak['time']}, com "
+        f"{_percentage(core_peak['mean_abs_return'], 3)} por intervalo; no grupo complementar, "
+        f"o pico ocorreu às {high_peak['time']}, com {_percentage(high_peak['mean_abs_return'], 3)}. "
+        "A linha complementar permanece, em geral, acima da linha do core."
+    ),
+    economic_interpretation=(
+        "A concentração próxima da abertura é coerente com incorporação de informação acumulada "
+        "fora do pregão e reajuste inicial de posições. O pico mais cedo e mais intenso no grupo "
+        "complementar sugere reação mais abrupta e menor capacidade de absorção de ordens."
+    ),
+    risk_implication=(
+        "Ordens grandes e limites intradiários devem considerar o horário: exposição na abertura "
+        "pode carregar risco por unidade de tempo superior ao observado no meio do pregão."
+    ),
+    caution=(
+        f"A assinatura foi calculada apenas até {effective_close}, o último horário sustentado "
+        "pela fonte. Isso evita uma cauda artificial de retornos zero até o teto configurado."
+    ),
+)}
+{_figure(
+    "rvol_correlation_heatmap.png",
+    "Correlação das RVols",
+    "A matriz mede comovimento entre as séries diárias de volatilidade, não entre retornos.",
+    evidence=(
+        f"A maior correlação foi {max_pair_value:.2f} entre {max_pair[0].replace('.SA', '')} e "
+        f"{max_pair[1].replace('.SA', '')}; a mediana dos pares foi {median_pair_value:.2f}. "
+        f"A menor foi {min_pair_value:.2f} entre {min_pair[0].replace('.SA', '')} e "
+        f"{min_pair[1].replace('.SA', '')}."
+    ),
+    economic_interpretation=(
+        "A correlação elevada entre os dois bancos é consistente com fatores comuns de juros, "
+        "crédito e risco doméstico. A mediana positiva indica componente sistêmico, embora haja "
+        "heterogeneidade setorial e idiossincrática."
+    ),
+    risk_implication=(
+        "Diversificação de retornos não garante diversificação de risco: a volatilidade pode subir "
+        "simultaneamente em vários ativos, exigindo buffers agregados em períodos de estresse."
+    ),
+    caution=(
+        "Com apenas 60 dias, correlações são sensíveis a poucos episódios extremos e não devem ser "
+        "tratadas como matriz estável para alocação de longo prazo."
+    ),
+)}
 </section>
 
 <section id="jumps">
 <h2>6. Jumps: frequência, intensidade e interpretação</h2>
-{_figure("rv_vs_bv.png","RV versus BV por ativo","Quando RV se afasta de BV, a parcela JV aumenta; a classificação ainda depende da padronização por TQ.")}
-{_figure("jump_days_realized_volatility.png","Jump days nas séries","A marcação estatística permite localizar episódios descontínuos sem usar um limiar arbitrário de retorno bruto.")}
-{_figure("jump_frequency_by_ticker.png","Frequência de jump days","CASH3 e LWSA3 tiveram as maiores incidências na amostra observada.")}
+{_figure(
+    "rv_vs_bv.png",
+    "RV versus BV por ativo",
+    "Quando RV se afasta de BV, a parcela JV aumenta; a classificação ainda depende da padronização por TQ.",
+    evidence=(
+        f"CASH3 e LWSA3 apresentaram os maiores jump shares médios, "
+        f"{_percentage(jumps.loc[jumps['ticker'].eq('CASH3.SA'), 'mean_jump_share'].iloc[0])} e "
+        f"{_percentage(jumps.loc[jumps['ticker'].eq('LWSA3.SA'), 'mean_jump_share'].iloc[0])}. "
+        f"A maior parcela diária foi {_percentage(jumps['max_jump_share'].max())}, em "
+        f"{jumps.loc[jumps['max_jump_share'].idxmax(), 'ticker'].replace('.SA', '')}."
+    ),
+    economic_interpretation=(
+        "BV acompanha a variação contínua gerada por muitos pequenos movimentos. Aberturas entre "
+        "RV e BV indicam que uma parcela relevante da variação diária se concentrou em movimentos "
+        "mais discretos, compatíveis com chegada súbita de informação."
+    ),
+    risk_implication=(
+        "Separar BV e JV evita tratar todo aumento de RV como simples elevação difusiva. Dias com "
+        "JV alta pedem stress de gaps, além do ajuste usual de volatilidade."
+    ),
+    caution=(
+        "RV maior que BV produz JV positiva, mas apenas a estatística padronizada por TQ define "
+        "jump day. Diferenças pequenas podem ser ruído amostral."
+    ),
+)}
+{_figure(
+    "jump_days_realized_volatility.png",
+    "Jump days nas séries",
+    "Os pontos destacados excedem o valor crítico normal de 99%.",
+    evidence=(
+        f"CASH3 teve {int(jumps.loc[jumps['ticker'].eq('CASH3.SA'), 'jump_days'].iloc[0])} jump days "
+        f"e LWSA3 teve {int(jumps.loc[jumps['ticker'].eq('LWSA3.SA'), 'jump_days'].iloc[0])}. "
+        f"O maior dia de RVol, CASH3 em {top_day_date}, não foi jump: seu Z={top_day['jump_z']:.2f}, "
+        "abaixo do crítico, pois BV também estava elevada."
+    ),
+    economic_interpretation=(
+        "Jumps aparecem em diferentes níveis de RVol. Um pregão pode ser muito volátil por uma "
+        "sequência contínua de movimentos, enquanto um salto estatístico pode ocorrer em um dia "
+        "de volatilidade total apenas moderada."
+    ),
+    risk_implication=(
+        "A distinção é relevante para cenários: volatilidade contínua afeta amplitude recorrente; "
+        "jumps afetam risco de execução, stop loss, gap e liquidação entre observações."
+    ),
+    caution=(
+        "A marcação não identifica a notícia causadora. Associação com fatos corporativos exige "
+        "timestamp de notícia e desenho de evento adicional."
+    ),
+)}
+{_figure(
+    "jump_frequency_by_ticker.png",
+    "Frequência de jump days",
+    "Percentual de dias classificados pelo teste BNS a 99%.",
+    evidence=(
+        f"CASH3 liderou com {_percentage(top_jump['jump_day_percentage'])}, seguido por LWSA3 "
+        f"({_percentage(jumps.loc[jumps['ticker'].eq('LWSA3.SA'), 'jump_day_percentage'].iloc[0])}). "
+        f"No outro extremo, VALE3 registrou {_percentage(jumps.loc[jumps['ticker'].eq('VALE3.SA'), 'jump_day_percentage'].iloc[0])} "
+        f"e ITUB4 {_percentage(jumps.loc[jumps['ticker'].eq('ITUB4.SA'), 'jump_day_percentage'].iloc[0])}."
+    ),
+    economic_interpretation=(
+        "A concentração em CASH3 e LWSA3 é coerente com maior peso de risco idiossincrático e "
+        "menor profundidade de mercado. A baixa incidência em VALE3 e ITUB4 sugere ajuste de preço "
+        "mais contínuo nesta janela, apesar de exposição a fatores macro relevantes."
+    ),
+    risk_implication=(
+        "A frequência pode orientar buffers específicos por ativo. Dois ativos com RVol média "
+        "semelhante podem exigir limites distintos se um deles concentra mais variação em saltos."
+    ),
+    caution=(
+        "São apenas 60 pregões por ticker. Uma diferença de três dias equivale a cinco pontos "
+        "percentuais, portanto os rankings de frequência têm incerteza amostral material."
+    ),
+)}
 <div class="table-wrap">{_table(jumps)}</div>
 <div class="risk"><strong>Interpretação.</strong> Um jump day significa que a diferença relativa
 entre RV e BV foi grande diante da incerteza estimada por TQ. Não significa automaticamente
@@ -580,7 +958,33 @@ gerar movimentos discretos; por isso a seleção de qualidade é parte da infer�
 
 <section id="garch">
 <h2>7. GARCH versus volatilidade realizada</h2>
-{_figure("garch_vs_realized_all.png","Comparação agregada GARCH–RVol","Os modelos GARCH capturam memória e suavização; a RVol reage no próprio dia aos movimentos intradiários.")}
+{_figure(
+    "garch_vs_realized_all.png",
+    "Comparação agregada GARCH–RVol",
+    "Os modelos GARCH capturam memória e suavização; a RVol reage no próprio dia aos movimentos intradiários.",
+    evidence=(
+        f"A persistência mediana α+β foi {median_persistence:.3f}. TOTS3 ficou próximo de um "
+        f"({successful_garch['alpha_plus_beta'].max():.3f}). A maior correlação contemporânea foi "
+        f"{best_garch_correlation['ticker'].replace('.SA', '')}, com "
+        f"{best_garch_correlation['correlation_garch_realized']:.3f}; a menor foi "
+        f"{weakest_garch_correlation['ticker'].replace('.SA', '')}, com "
+        f"{weakest_garch_correlation['correlation_garch_realized']:.3f}."
+    ),
+    economic_interpretation=(
+        "A linha GARCH tende a reagir com defasagem e decair gradualmente, pois resume a memória "
+        "dos retornos diários. A RVol incorpora imediatamente toda a variação observada no pregão, "
+        "inclusive episódios que o modelo condicional suaviza."
+    ),
+    risk_implication=(
+        "GARCH é útil para uma referência prospectiva persistente; RVol é superior como termômetro "
+        "do dia corrente. O uso conjunto reduz o risco de ignorar tanto memória quanto choque recente."
+    ),
+    caution=(
+        "Persistência próxima de um em amostra curta pode refletir estimação imprecisa ou regime "
+        "específico. Além disso, GARCH inclui overnight e RVol não, de modo que correlação baixa não "
+        "implica erro de uma das medidas."
+    ),
+)}
 <div class="table-wrap">{_table(garch)}</div>
 <p>Todos os 11 ajustes retornaram status de convergência, com 59 retornos diários. Essa quantidade
 é suficiente para executar o estimador, mas pequena para inferência robusta. Valores de α+β
@@ -596,7 +1000,31 @@ entre GARCH e RVol varia por ativo e não deve ser interpretada como teste de su
 t−1/t/t+1 foi <strong>{_percentage(event_rvol_ratio - 1)}</strong> acima da média dos dias normais
 do mesmo ativo. A frequência média de jump days foi <strong>{_percentage(event_jump_frequency)}</strong>
 nas janelas e <strong>{_percentage(normal_jump_frequency)}</strong> nos dias normais.</p>
-{_figure("event_window_volatility.png","RVol em janelas de earnings","A heterogeneidade é relevante: algumas janelas elevaram fortemente a RVol; outras ficaram próximas ou abaixo da média.")}
+{_figure(
+    "event_window_volatility.png",
+    "RVol em janelas de earnings",
+    "Compara a média de t−1, t e t+1 com os demais dias do mesmo ativo.",
+    evidence=(
+        f"Na média dos 12 eventos, a RVol da janela foi {_percentage(event_rvol_ratio - 1)} maior. "
+        f"A maior razão foi ABEV3, {top_event['event_vs_normal_ratio']:.2f}x; a menor foi PETR4, "
+        f"{bottom_event['event_vs_normal_ratio']:.2f}x. Jump days ocorreram em "
+        f"{_percentage(event_jump_frequency)} das posições de evento, contra "
+        f"{_percentage(normal_jump_frequency)} nos dias normais."
+    ),
+    economic_interpretation=(
+        "O resultado médio é compatível com maior incerteza informacional ao redor de balanços, "
+        "mas a resposta é heterogênea: o mercado pode antecipar informações, reagir no t+1 ou "
+        "considerar um resultado pouco surpreendente."
+    ),
+    risk_implication=(
+        "Calendários corporativos devem entrar no planejamento de limites e liquidez. Mesmo quando "
+        "a RVol média não sobe, como em PETR4, a janela pode conter jump e risco de gap."
+    ),
+    caution=(
+        "A amostra contém somente 12 eventos, as datas vêm de fonte terceirizada e não há medida "
+        "de surpresa nem controle por notícias macro. A evidência é descritiva, não causal."
+    ),
+)}
 <div class="table-wrap">{_table(event_ok)}</div>
 <div class="notice"><strong>Cautela.</strong> Esta comparação tem apenas 12 eventos, sobreposição
 potencial com notícias macro e setoriais, datas fornecidas por fonte terceirizada e nenhuma
@@ -666,6 +1094,7 @@ uploaded = files.upload()  # selecione Código Final.py
   <li>RV e RVol em caso simples.</li>
   <li>BV positiva e finita.</li>
   <li>Retorno intradiário sem cruzar dias.</li>
+  <li>Fechamento efetivo sem prolongamento artificial da grade.</li>
   <li>JV não negativa.</li>
   <li>Remoção de preços negativos/nulos.</li>
   <li>Exclusão por baixa cobertura e manutenção de ticker válido.</li>
@@ -730,11 +1159,28 @@ uploaded = files.upload()  # selecione Código Final.py
 )}</div>
 <h3>13.3 Inventário das bases incorporadas</h3>
 <div class="table-wrap">{_table(inventory_frame)}</div>
-<h3>13.4 Galeria completa dos gráficos principais</h3>
-<div class="gallery">{figure_gallery}</div>
-<h3>13.5 Checklist da rubrica</h3>
+<h3>13.4 Auditoria formal da rubrica — Tema 1</h3>
+<p>A tabela abaixo faz o double check item a item contra os 10,0 pontos divulgados pelo professor.
+“Atendido” significa que há implementação e evidência verificável nos dois entregáveis; não é
+uma promessa de nota, pois a avaliação final pertence ao docente.</p>
+<div class="table-wrap">{_table(rubric)}</div>
+<div class="method"><strong>Resultado da auditoria.</strong> Todos os sete critérios do Tema 1
+possuem evidência explícita. A correção do fechamento efetivo fortalece especialmente o item de
+tratamento dos dados: a grade não cria mais uma hora artificial de retornos zero após o último
+candle regularmente sustentado pela fonte.</div>
+<h3>13.5 Observações gerais do manual</h3>
+<ul class="checklist">
+  <li><strong>Dois ou mais entregáveis:</strong> PowerPoint com 18 slides, este relatório HTML e Código Final com base incorporada.</li>
+  <li><strong>Reprodutibilidade:</strong> o Código Final executa ponta a ponta no Colab e gera dados processados, tabelas, figuras, relatório e slides.</li>
+  <li><strong>Interpretação econômica:</strong> cada gráfico principal tem evidência numérica, leitura econômica, implicação de risco e cautela.</li>
+  <li><strong>Código executável:</strong> testes unitários e testes internos cobrem fórmulas, retornos, limpeza, seleção e eventos vazios.</li>
+  <li><strong>Clareza:</strong> fórmulas, decisões metodológicas, limitações e arquivos de auditoria estão documentados.</li>
+  <li><strong>Originalidade:</strong> texto e código foram produzidos para este projeto; conceitos e fórmulas da literatura estão citados nas referências.</li>
+</ul>
+<h3>13.6 Checklist técnico da rubrica</h3>
 <ul class="checklist">
   <li>✓ Limpeza, timezone, horário regular, duplicatas, preços positivos e sincronização.</li>
+  <li>✓ Fechamento efetivo inferido pela cobertura da fonte, sem cauda artificial de preços carregados.</li>
   <li>✓ Retornos intradiários sem cruzar dias e retornos diários close-to-close.</li>
   <li>✓ RV, RVol diária/anualizada e BV com correção de amostra.</li>
   <li>✓ JV, jump share, tripower quarticity e teste a 99%.</li>

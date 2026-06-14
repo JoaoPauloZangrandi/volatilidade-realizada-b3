@@ -1,5 +1,5 @@
 ticker,group,motivo_exclusao,cobertura,dias_validos,observacoes_medias,proporcao_preco_parado
-BHIA3.SA,high_vol_growth_candidate,precos parados 58.5% acima do maximo,0.8602430555555557,60,82.58333333333333,0.5850615114235501
-CVCB3.SA,high_vol_growth_candidate,precos parados 57.8% acima do maximo,0.8605902777777779,60,82.61666666666666,0.5784934882083773
+BHIA3.SA,high_vol_growth_candidate,precos parados 51.9% acima do maximo,0.9949799196787148,60,82.58333333333333,0.5191446028513238
+CVCB3.SA,high_vol_growth_candidate,precos parados 51.1% acima do maximo,0.9953815261044175,60,82.61666666666666,0.5114239086087311
 AZUL4.SA,high_vol_growth_candidate,download vazio,0.0,0,0.0,
 VIIA3.SA,high_vol_growth_candidate,download vazio,0.0,0,0.0,

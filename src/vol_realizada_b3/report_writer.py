@@ -63,11 +63,20 @@ def build_report(config: dict[str, Any]) -> str:
     ranking = pd.read_csv(tables / "asset_ranking_risk.csv")
     groups = pd.read_csv(tables / "group_comparison.csv")
     events = pd.read_csv(tables / "event_window_summary.csv")
+    daily_quality = pd.read_csv(
+        PROJECT_ROOT / "data" / "interim" / "daily_data_quality.csv"
+    )
 
     included = coverage.loc[coverage["status"].eq("included")]
     excluded = coverage.loc[coverage["status"].eq("excluded")]
     top_rvol = realized.sort_values("mean_rvol_annualized", ascending=False).iloc[0]
     top_jump = jumps.sort_values("jump_day_percentage", ascending=False).iloc[0]
+    effective_close = (
+        str(daily_quality["effective_market_close"].mode().iloc[0])
+        if "effective_market_close" in daily_quality
+        else config["data"]["market_close"]
+    )
+    expected_candles = int(daily_quality["expected_candles"].mode().iloc[0])
     successful_garch = garch.loc[garch["fit_status"].eq("ok")]
     persistence_text = (
         f"A persistencia mediana alpha + beta foi "
@@ -137,7 +146,7 @@ Foram exigidos pelo menos 30 dias validos, cobertura media minima de 70%, no min
 
 ## 4. Tratamento e construcao dos retornos
 
-Os registros foram ordenados, desduplicados, convertidos para `America/Sao_Paulo` e restritos a 10:00-17:55. Cada ticker-dia foi sincronizado em grade regular de cinco minutos. O ultimo preco de cada intervalo foi usado; o forward-fill ocorreu apenas dentro do mesmo dia. O primeiro retorno de cada dia foi removido, evitando retornos entre o fechamento anterior e a abertura seguinte.
+Os registros foram ordenados, desduplicados, convertidos para `America/Sao_Paulo` e inicialmente limitados ao teto configurado de 10:00-{config['data']['market_close']}. Como a fonte sustentou regularmente os candles apenas ate {effective_close}, o pipeline inferiu esse fechamento efetivo com suporte minimo de 80% dos ticker-dias. A grade final possui {expected_candles} candles de cinco minutos e evita carregar artificialmente o ultimo preco por uma hora sem observacoes. O forward-fill ocorreu apenas dentro do mesmo dia. O primeiro retorno de cada dia foi removido, evitando retornos entre o fechamento anterior e a abertura seguinte.
 
 ## 5. Metodologia
 
@@ -223,13 +232,15 @@ Extensoes naturais incluem dados tick-by-tick da B3, comparacao entre 1, 5 e 15 
 
 ## Checklist da Rubrica
 
-1. **Tratamento e organizacao:** `data_download.py`, `data_cleaning.py`, `sample_selection.py`, scripts 01-03 e `data_coverage_by_ticker.csv`.
-2. **Medidas:** RV, RVol e BV em `realized_measures.py`; resultados em `realized_measures.csv` e `realized_measures_summary.csv`.
-3. **Jumps:** JV, tripower quarticity e teste em `jumps.py`; `jump_summary.csv` e figuras de jumps.
-4. **Comparacao:** series, boxplot, ranking, correlacao e comparacao core versus growth/high-vol.
-5. **Codigo:** pacote em `src/`, YAML, logs, tratamento de erros, testes e `run_all.py`.
-6. **Analise:** interpretacao economica, conexao com teoria, GARCH e implicacoes para risco.
-7. **Apresentacao:** relatorio Markdown, figuras em alta resolucao e PowerPoint de 18 slides.
+1. **Tratamento e organizacao — 1,5 ponto:** `data_download.py`, `data_cleaning.py`, `sample_selection.py`, sessao efetiva inferida, retorno sem cruzar dias e `data_coverage_by_ticker.csv`.
+2. **Medidas — 2,0 pontos:** RV, RVol e BV em `realized_measures.py`; formulas, testes e resultados em `realized_measures.csv` e `realized_measures_summary.csv`.
+3. **Jumps — 1,5 ponto:** JV, jump share, tripower quarticity e teste BNS em `jumps.py`; `jump_summary.csv` e tres figuras especificas.
+4. **Comparacao — 1,5 ponto:** series, boxplot, ranking, correlacao, comparacao core versus growth/high-vol e janelas de earnings.
+5. **Codigo — 1,0 ponto:** pacote em `src/`, YAML, logs, tratamento de erros, testes, `run_all.py` e `Codigo Final.py` autocontido.
+6. **Analise — 2,0 pontos:** interpretacao economica apos os graficos no HTML, conexao com teoria, GARCH, limitacoes e implicacoes para risco.
+7. **Apresentacao — 0,5 ponto:** Relatorio Final HTML autocontido, mini-paper, figuras em alta resolucao e PowerPoint de 18 slides.
+
+**Observacoes gerais:** ha mais de dois entregaveis; a base real esta incorporada ao Codigo Final; a pipeline foi testada ponta a ponta; texto e codigo foram produzidos para este projeto e a literatura utilizada esta citada.
 """
 
 

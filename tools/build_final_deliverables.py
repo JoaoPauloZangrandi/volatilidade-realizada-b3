@@ -202,6 +202,8 @@ CONFIG: dict[str, Any] = {{
         "market_open": "10:00",
         "market_close": "17:55",
         "resample_interval": "5min",
+        "infer_effective_market_close": True,
+        "min_close_support_share": 0.80,
     }},
     "sample_selection": {{
         "min_valid_days": 30,
@@ -339,6 +341,11 @@ def run_internal_tests() -> None:
     )
     first_returns = synchronized.groupby("date")["log_return"].nth(0)
     assert first_returns.isna().all()
+    stretched, stretched_quality = synchronize_intraday(
+        frame, market_open="10:00", market_close="10:30"
+    )
+    assert stretched["time"].max() == "10:05"
+    assert stretched_quality["effective_market_close"].eq("10:05").all()
 
     negative = frame.iloc[[0]].copy()
     negative.loc[:, "close"] = -1
@@ -348,7 +355,7 @@ def run_internal_tests() -> None:
         columns=["ticker", "date", "event_type", "event_description"]
     )
     assert analyze_event_windows(empty_events, pd.DataFrame()).empty
-    print("Testes internos: 8 verificações concluídas com sucesso.")
+    print("Testes internos: 9 verificações concluídas com sucesso.")
 
 
 def create_results_archive() -> Path:

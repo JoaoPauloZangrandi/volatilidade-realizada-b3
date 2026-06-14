@@ -178,6 +178,12 @@ def _result_context() -> dict[str, Any]:
     groups = pd.read_csv(tables / "group_comparison.csv")
     garch = pd.read_csv(tables / "garch_summary.csv")
     events = pd.read_csv(tables / "event_window_summary.csv")
+    daily_quality = pd.read_csv(
+        PROJECT_ROOT / "data" / "interim" / "daily_data_quality.csv"
+    )
+    measures = pd.read_csv(
+        PROJECT_ROOT / "data" / "processed" / "realized_measures.csv"
+    )
     included = coverage.loc[coverage["status"].eq("included")]
     excluded = coverage.loc[coverage["status"].eq("excluded")]
     top_rvol = realized.sort_values("mean_rvol_annualized", ascending=False).iloc[0]
@@ -189,6 +195,8 @@ def _result_context() -> dict[str, Any]:
         "groups": groups,
         "garch": garch,
         "events": events,
+        "daily_quality": daily_quality,
+        "measures": measures,
         "top_rvol": top_rvol,
         "top_jump": top_jump,
     }
@@ -201,6 +209,22 @@ def run_slides_builder(
     config = config or load_config()
     context = _result_context()
     figures = PROJECT_ROOT / "outputs" / "figures"
+    effective_close = (
+        str(context["daily_quality"]["effective_market_close"].mode().iloc[0])
+        if "effective_market_close" in context["daily_quality"]
+        else config["data"]["market_close"]
+    )
+    expected_candles = int(
+        context["daily_quality"]["expected_candles"].mode().iloc[0]
+    )
+    groups = context["groups"]
+    core = groups.loc[groups["grupo"].eq("core_liquid")].iloc[0]
+    high_vol = groups.loc[
+        groups["grupo"].eq("high_vol_growth_candidate")
+    ].iloc[0]
+    rvol_ratio = high_vol["mean_rvol_annualized"] / core["mean_rvol_annualized"]
+    jump_ratio = high_vol["jump_frequency"] / core["jump_frequency"]
+    top_day = context["measures"].nlargest(1, "rvol_annualized").iloc[0]
     deck = AcademicDeck()
     deck.title_slide(
         config["project"]["title"],
@@ -237,10 +261,11 @@ def run_slides_builder(
     deck.content_slide(
         "Tratamento dos dados",
         [
-            "Timezone America/Sao_Paulo e horario regular 10:00-17:55.",
+            f"Timezone America/Sao_Paulo; teto 17:55 e fechamento efetivo {effective_close}.",
+            f"Grade regular de 5 minutos com {expected_candles} candles sustentados pela fonte.",
             "Remocao de duplicatas e precos invalidos.",
-            "Grade regular de 5 minutos e ultimo preco do intervalo.",
             "Forward-fill somente dentro do dia; primeiro retorno diario removido.",
+            "Fechamento inferido evita uma cauda artificial de retornos zero.",
         ],
     )
     deck.content_slide(
@@ -265,8 +290,10 @@ def run_slides_builder(
     deck.content_slide(
         "Volatilidade realizada ao longo do tempo",
         [
-            "Picos mostram mudancas rapidas do risco observado.",
+            f"Maior ticker-dia: {top_day['ticker']} com {_pct(top_day['rvol_annualized'])}.",
+            "O maior pico nao foi jump: RV e BV subiram juntas.",
             "Persistencia visual sugere clustering de volatilidade.",
+            "Growth/high-vol opera em patamar superior ao core na maior parte da janela.",
         ],
         figures / "realized_volatility_time_series.png",
     )
@@ -275,16 +302,24 @@ def run_slides_builder(
         [
             f"Maior RVol anualizada media: {context['top_rvol']['ticker']} "
             f"({_pct(context['top_rvol']['mean_rvol_annualized'])}).",
+            "CASH3, LWSA3 e MGLU3 ocupam as tres primeiras posicoes.",
+            "TOTS3 e o ativo core de maior volatilidade media.",
             "Boxplots comparam nivel, dispersao e caudas entre ativos.",
         ],
         figures / "rvol_boxplot_by_ticker.png",
     )
-    groups = context["groups"]
     group_bullets = [
         f"{row.grupo}: RVol={_pct(row.mean_rvol_annualized)}, "
         f"jumps={_pct(row.jump_frequency)}."
         for row in groups.itertuples()
-    ] or ["Comparacao indisponivel por falta de grupos selecionados."]
+    ]
+    group_bullets.extend(
+        [
+            f"Razao de RVol complementar/core: {rvol_ratio:.2f}x.",
+            f"Razao da frequencia de jumps: {jump_ratio:.2f}x.",
+            "Resultado condicionado aos filtros: apenas 3 candidatas passaram.",
+        ]
+    )
     deck.content_slide(
         "Core liquido versus growth/high-vol",
         group_bullets,
@@ -296,6 +331,7 @@ def run_slides_builder(
             "BV usa produtos de retornos absolutos adjacentes.",
             "RV acima de BV gera JV positiva.",
             "Diferenca economica: risco continuo versus movimentos descontínuos.",
+            "JV positiva nao basta: o teste usa TQ e valor critico de 99%.",
         ],
         figures / "rv_vs_bv.png",
     )
@@ -304,7 +340,9 @@ def run_slides_builder(
         [
             f"Maior frequencia: {context['top_jump']['ticker']} "
             f"({_pct(context['top_jump']['jump_day_percentage'])}).",
+            "LWSA3 ficou em segundo; VALE3 e ITUB4 tiveram as menores frequencias.",
             "Jump share mede a parcela estimada de RV associada a saltos.",
+            "Jumps afetam risco de gap, execucao e stops entre observacoes.",
         ],
         figures / "jump_frequency_by_ticker.png",
     )
@@ -320,7 +358,9 @@ def run_slides_builder(
             persistence,
             "GARCH captura persistencia com resposta suavizada.",
             "RVol reage diretamente a picos intradiarios e jumps.",
+            "Maior correlacao GARCH-RVol ocorreu em B3SA3, ainda moderada.",
             "Close-to-close inclui overnight; RVol intradiaria nao.",
+            "Amostra de 59 retornos: parametros devem ser lidos com cautela.",
         ],
         figures / "garch_vs_realized_all.png",
     )
@@ -350,7 +390,7 @@ def run_slides_builder(
                 if not valid_events.empty
                 else "Comparacao de jumps indisponivel."
             ),
-            "A pipeline nao usa scraping fragil nem inventa datas.",
+            "Maior elevacao relativa em ABEV3; PETR4 ficou abaixo da media normal.",
             "Evidencia descritiva; fonte terceirizada e sem identificacao causal.",
         ],
         figures / "event_window_volatility.png",

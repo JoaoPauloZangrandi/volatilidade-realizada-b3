@@ -14,8 +14,8 @@ Incluidos: PETR4.SA, VALE3.SA, ITUB4.SA, BBDC4.SA, B3SA3.SA, WEGE3.SA, ABEV3.SA,
 
 Excluidos:
 
-- BHIA3.SA: precos parados 58.5% acima do maximo
-- CVCB3.SA: precos parados 57.8% acima do maximo
+- BHIA3.SA: precos parados 51.9% acima do maximo
+- CVCB3.SA: precos parados 51.1% acima do maximo
 - AZUL4.SA: download vazio
 - VIIA3.SA: download vazio
 
