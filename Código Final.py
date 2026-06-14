@@ -11207,23 +11207,68 @@ def _figure(
     economic_interpretation: str = "",
     risk_implication: str = "",
     caution: str = "",
+    reading_style: str = "prose",
+    reading_title: str = "",
 ) -> str:
     path = PROJECT_ROOT / "outputs" / "figures" / filename
     if not path.exists():
         return ""
-    reading_items = [
-        ("O que o gráfico mostra", evidence),
-        ("Interpretação econômica", economic_interpretation),
-        ("Implicação para risco", risk_implication),
-        ("Cautela de interpretação", caution),
-    ]
-    reading = "".join(
-        f"<div><h4>{html.escape(label)}</h4><p>{html.escape(text)}</p></div>"
-        for label, text in reading_items
-        if text
+
+    def paragraph(*parts: str, css: str = "") -> str:
+        text = " ".join(part.strip() for part in parts if part.strip())
+        class_name = f' class="{css}"' if css else ""
+        return f"<p{class_name}>{html.escape(text)}</p>" if text else ""
+
+    title_html = (
+        f"<h4>{html.escape(reading_title)}</h4>" if reading_title else ""
     )
+    if reading_style == "bullets":
+        bullets = "".join(
+            f"<li>{html.escape(item)}</li>"
+            for item in [economic_interpretation, risk_implication]
+            if item
+        )
+        reading = (
+            title_html
+            + paragraph(evidence, css="reading-lead")
+            + (f"<ul>{bullets}</ul>" if bullets else "")
+            + paragraph(caution, css="reading-note")
+        )
+    elif reading_style == "mixed":
+        bullets = "".join(
+            f"<li>{html.escape(item)}</li>"
+            for item in [risk_implication, caution]
+            if item
+        )
+        reading = (
+            title_html
+            + paragraph(evidence, economic_interpretation)
+            + (f"<ul>{bullets}</ul>" if bullets else "")
+        )
+    elif reading_style == "callout":
+        reading = (
+            title_html
+            + paragraph(evidence, economic_interpretation, css="reading-lead")
+            + paragraph(risk_implication)
+            + paragraph(caution, css="reading-note")
+        )
+    elif reading_style == "compact":
+        reading = title_html + paragraph(
+            evidence,
+            economic_interpretation,
+            risk_implication,
+            caution,
+        )
+    else:
+        reading = (
+            title_html
+            + paragraph(evidence, economic_interpretation)
+            + paragraph(risk_implication, caution)
+        )
     reading_block = (
-        f'<div class="chart-reading">{reading}</div>' if reading else ""
+        f'<div class="chart-commentary {reading_style}">{reading}</div>'
+        if reading
+        else ""
     )
     return f"""
     <div class="figure-unit">
@@ -11410,11 +11455,11 @@ def build_final_html(
     for ticker in included["ticker"]:
         row = successful_garch.loc[successful_garch["ticker"].eq(ticker)].iloc[0]
         persistence_description = (
-            "muito elevada, indicando forte memória do choque"
+            "que os choques demoram bastante a se dissipar"
             if row["alpha_plus_beta"] >= 0.98
-            else "elevada, indicando suavização persistente"
+            else "uma memória ainda relevante dos choques"
             if row["alpha_plus_beta"] >= 0.80
-            else "moderada ou baixa nesta janela curta"
+            else "uma memória curta nesta janela"
         )
         correlation_description = (
             "moderada"
@@ -11423,31 +11468,44 @@ def build_final_html(
             if row["correlation_garch_realized"] >= 0
             else "ligeiramente negativa"
         )
+        if row["alpha_plus_beta"] >= 0.98 and row["correlation_garch_realized"] < 0.20:
+            garch_reading = (
+                f"Em {ticker}, a persistência é muito alta (α+β="
+                f"{row['alpha_plus_beta']:.3f}), mas a correlação com a RVol ficou "
+                f"em apenas {row['correlation_garch_realized']:.3f}. O GARCH guarda "
+                "memória dos choques, porém acompanha pouco a intensidade exata observada "
+                "nos candles de cada pregão."
+            )
+        elif row["correlation_garch_realized"] >= 0.30:
+            garch_reading = (
+                f"{ticker} apresentou uma das aproximações mais claras entre as duas "
+                f"medidas: correlação de {row['correlation_garch_realized']:.3f} e "
+                f"α+β={row['alpha_plus_beta']:.3f}. Ainda assim, a linha realizada "
+                "reage de forma mais abrupta aos dias de maior movimento."
+            )
+        elif row["alpha_plus_beta"] < 0.60:
+            garch_reading = (
+                f"Para {ticker}, o ajuste encontrou persistência relativamente baixa "
+                f"(α+β={row['alpha_plus_beta']:.3f}) e correlação de "
+                f"{row['correlation_garch_realized']:.3f}. Nesta janela, o modelo "
+                "diário não reproduziu bem o desenho dos picos intradiários."
+            )
+        else:
+            garch_reading = (
+                f"Em {ticker}, α+β={row['alpha_plus_beta']:.3f} sugere "
+                f"{persistence_description}; a correlação de "
+                f"{row['correlation_garch_realized']:.3f} foi {correlation_description}. "
+                "A série realizada continua mais sensível aos movimentos do próprio dia."
+            )
         garch_gallery_parts.append(
             _figure(
                 f"garch_vs_realized_{ticker.replace('.', '_').lower()}.png",
                 f"GARCH e RVol — {ticker}",
                 "Comparação diária individual entre volatilidade condicional e realizada.",
                 css_class="compact",
-                evidence=(
-                    f"Para {ticker}, α+β={row['alpha_plus_beta']:.3f} e a correlação "
-                    f"GARCH–RVol={row['correlation_garch_realized']:.3f}. A persistência "
-                    f"estimada é {persistence_description}, enquanto a associação contemporânea "
-                    f"entre as duas medidas é {correlation_description}."
-                ),
-                economic_interpretation=(
-                    "A linha GARCH distribui a informação dos retornos diários ao longo do tempo; "
-                    "a RVol concentra no próprio pregão a variação observada nos candles. Picos "
-                    "que aparecem apenas na RVol são compatíveis com reação intradiária rápida."
-                ),
-                risk_implication=(
-                    "Para monitoramento, a RVol sinaliza o choque corrente e o GARCH fornece uma "
-                    "referência de memória. Divergências justificam revisão de limites e cenários."
-                ),
-                caution=(
-                    "O ajuste usa somente 59 retornos diários e inclui overnight no close-to-close; "
-                    "portanto α+β e correlação não devem ser tratados como parâmetros estruturais."
-                ),
+                evidence=garch_reading,
+                caution="A estimação usa somente 59 retornos diários e inclui o overnight.",
+                reading_style="compact",
             )
         )
     garch_gallery = "\n".join(garch_gallery_parts)
@@ -11574,17 +11632,37 @@ h4 {{ color:var(--navy); }}
 figure {{ margin:34px 0; page-break-inside:avoid; }}
 figure img {{ width:100%; height:auto; border:1px solid var(--line); border-radius:7px; }}
 figcaption {{ color:var(--muted); font-size:.9rem; margin-top:9px; }}
-.chart-reading {{
-  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 18px;
-  margin:-18px 0 34px; padding:20px 22px; background:#f4f8fb;
-  border:1px solid #cddde8; border-left:5px solid var(--blue); border-radius:7px;
-  page-break-inside:avoid;
+.chart-commentary {{
+  margin:-16px 0 38px; page-break-inside:avoid; color:#354452;
 }}
-.chart-reading h4 {{ margin:0 0 5px; font-size:.92rem; color:var(--navy); }}
-.chart-reading p {{ margin:0; font-size:.91rem; color:#3b4855; }}
+.chart-commentary h4 {{
+  margin:0 0 9px; font-family:Georgia,serif; font-size:1.03rem; color:var(--navy);
+}}
+.chart-commentary p {{ margin:0 0 11px; }}
+.chart-commentary.prose {{
+  padding:2px 3% 0; font-family:Georgia,serif; font-size:1rem; line-height:1.72;
+}}
+.chart-commentary.bullets {{
+  padding:18px 22px; background:#f6f8fa; border-top:3px solid var(--blue);
+}}
+.chart-commentary.bullets ul,.chart-commentary.mixed ul {{ margin:9px 0 6px 20px; padding:0; }}
+.chart-commentary.bullets li,.chart-commentary.mixed li {{ margin-bottom:7px; }}
+.chart-commentary.callout {{
+  padding:20px 24px; background:#edf5fa; border-left:5px solid var(--blue);
+  border-radius:0 7px 7px 0;
+}}
+.chart-commentary.mixed {{
+  padding:18px 22px; border:1px solid var(--line); border-radius:7px;
+  background:linear-gradient(90deg,#fff 0%,#f8fafb 100%);
+}}
+.chart-commentary.compact {{
+  margin:7px 0 28px; padding:13px 15px; background:#f8fafb;
+  border-left:3px solid #9fb8ca; font-size:.87rem; line-height:1.55;
+}}
+.reading-lead {{ font-weight:600; color:#293b4c; }}
+.reading-note {{ color:var(--muted); font-size:.88rem; font-style:italic; }}
 .gallery {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:22px; }}
 .gallery .figure-unit,.gallery figure {{ margin:0; }}
-.gallery .chart-reading {{ grid-template-columns:1fr; margin:8px 0 26px; }}
 .compact img {{ max-height:430px; object-fit:contain; }}
 .table-wrap {{ overflow-x:auto; border:1px solid var(--line); border-radius:7px; margin:20px 0; }}
 .data-table {{ width:100%; border-collapse:collapse; font-size:.84rem; }}
@@ -11610,7 +11688,7 @@ footer {{ background:var(--navy); color:white; padding:34px 7%; }}
 }}
 @media (max-width:700px) {{
   h1 {{ font-size:2.25rem; }} section {{ padding:38px 5%; }}
-  .gallery,.chart-reading {{ grid-template-columns:1fr; }} nav {{ display:none; }}
+  .gallery {{ grid-template-columns:1fr; }} nav {{ display:none; }}
 }}
 </style>
 </head>
@@ -11707,6 +11785,8 @@ de o provedor continuar retornando exatamente a mesma janela.</p>
         "Os filtros criam seleção amostral. A conclusão sobre growth/small caps vale para LWSA3, "
         "MGLU3 e CASH3, que passaram aos critérios, e não para todo o segmento."
     ),
+    reading_style="mixed",
+    reading_title="Cobertura alta não é sinônimo de liquidez",
 )}
 <h3>2.4 Auditoria por ticker</h3>
 <div class="table-wrap">{_table(coverage, columns=[
@@ -11840,6 +11920,7 @@ relevantes. Assimetria, curtose e percentis extremos reforçam que uma aproxima�
         "A anualização multiplica a variância diária por 252 para facilitar comparação; ela não "
         "significa que um pico diário permaneceria por um ano."
     ),
+    reading_style="prose",
 )}
 {_figure(
     "rvol_boxplot_by_ticker.png",
@@ -11857,13 +11938,15 @@ relevantes. Assimetria, curtose e percentis extremos reforçam que uma aproxima�
         "Isso reforça que o grupo complementar selecionado esteve sujeito a risco recorrente mais alto."
     ),
     risk_implication=(
-        "Ativos com caixa alta e cauda superior longa exigem orçamento de risco menor e cenários "
+        "Ativos com mediana elevada e cauda superior longa exigem orçamento de risco menor e cenários "
         "de estresse que não sejam baseados somente na mediana."
     ),
     caution=(
         "Boxplots não controlam por preço, setor, tamanho ou liquidez. Eles documentam diferenças "
         "na janela observada, sem atribuir causalidade a uma característica isolada."
     ),
+    reading_style="bullets",
+    reading_title="O que vale observar na distribuição",
 )}
 <h3>5.2 Resumo por ativo</h3>
 <div class="table-wrap">{_table(realized)}</div>
@@ -11891,6 +11974,8 @@ relevantes. Assimetria, curtose e percentis extremos reforçam que uma aproxima�
         "O ranking é amostral e pode mudar com o regime. Ele não é previsão de retorno nem medida "
         "completa de perda, pois volatilidade é simétrica e não distingue movimentos positivos de negativos."
     ),
+    reading_style="callout",
+    reading_title="Uma hierarquia de risco bem definida nesta janela",
 )}
 <div class="table-wrap">{_table(ranking)}</div>
 <h3>5.4 Comparação entre grupos</h3>
@@ -11918,6 +12003,8 @@ relevantes. Assimetria, curtose e percentis extremos reforçam que uma aproxima�
         "A comparação é condicional aos filtros: somente três dos sete candidatos complementares "
         "entraram. Não se deve generalizar o multiplicador para todas as small caps da B3."
     ),
+    reading_style="mixed",
+    reading_title="A diferença entre os grupos aparece nas três métricas",
 )}
 <div class="table-wrap">{_table(groups)}</div>
 <p>A RVol do grupo complementar foi <strong>{rvol_ratio:.2f} vezes</strong> a do core. Sua
@@ -11951,6 +12038,7 @@ de small caps.</p>
         f"A assinatura foi calculada apenas até {effective_close}, o último horário sustentado "
         "pela fonte. Isso evita uma cauda artificial de retornos zero até o teto configurado."
     ),
+    reading_style="prose",
 )}
 {_figure(
     "rvol_correlation_heatmap.png",
@@ -11975,6 +12063,8 @@ de small caps.</p>
         "Com apenas 60 dias, correlações são sensíveis a poucos episódios extremos e não devem ser "
         "tratadas como matriz estável para alocação de longo prazo."
     ),
+    reading_style="bullets",
+    reading_title="A volatilidade também se move em conjunto",
 )}
 </section>
 
@@ -12004,6 +12094,7 @@ de small caps.</p>
         "RV maior que BV produz JV positiva, mas apenas a estatística padronizada por TQ define "
         "jump day. Diferenças pequenas podem ser ruído amostral."
     ),
+    reading_style="prose",
 )}
 {_figure(
     "jump_days_realized_volatility.png",
@@ -12028,6 +12119,8 @@ de small caps.</p>
         "A marcação não identifica a notícia causadora. Associação com fatos corporativos exige "
         "timestamp de notícia e desenho de evento adicional."
     ),
+    reading_style="mixed",
+    reading_title="Volatilidade alta e jump não são a mesma coisa",
 )}
 {_figure(
     "jump_frequency_by_ticker.png",
@@ -12052,6 +12145,8 @@ de small caps.</p>
         "São apenas 60 pregões por ticker. Uma diferença de três dias equivale a cinco pontos "
         "percentuais, portanto os rankings de frequência têm incerteza amostral material."
     ),
+    reading_style="callout",
+    reading_title="CASH3 e LWSA3 concentram o risco de salto",
 )}
 <div class="table-wrap">{_table(jumps)}</div>
 <div class="risk"><strong>Interpretação.</strong> Um jump day significa que a diferença relativa
@@ -12088,6 +12183,7 @@ gerar movimentos discretos; por isso a seleção de qualidade é parte da infer�
         "específico. Além disso, GARCH inclui overnight e RVol não, de modo que correlação baixa não "
         "implica erro de uma das medidas."
     ),
+    reading_style="prose",
 )}
 <div class="table-wrap">{_table(garch)}</div>
 <p>Todos os 11 ajustes retornaram status de convergência, com 59 retornos diários. Essa quantidade
@@ -12128,6 +12224,8 @@ nas janelas e <strong>{_percentage(normal_jump_frequency)}</strong> nos dias nor
         "A amostra contém somente 12 eventos, as datas vêm de fonte terceirizada e não há medida "
         "de surpresa nem controle por notícias macro. A evidência é descritiva, não causal."
     ),
+    reading_style="mixed",
+    reading_title="O efeito médio existe, mas não é uniforme",
 )}
 <div class="table-wrap">{_table(event_ok)}</div>
 <div class="notice"><strong>Cautela.</strong> Esta comparação tem apenas 12 eventos, sobreposição
