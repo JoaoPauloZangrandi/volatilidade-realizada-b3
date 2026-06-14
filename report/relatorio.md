@@ -89,7 +89,7 @@ PETR4 e VALE3 podem responder a petroleo, minerio, cambio e noticias globais; ba
 
 ## 10. Eventos de resultados
 
-O arquivo manual nao continha eventos utilizaveis. A pipeline foi executada sem atribuir datas de resultados nao verificadas.
+Foram avaliados 12 eventos de earnings. Na media, a RVol da janela t-1/t/t+1 foi 16.7% maior que a media dos dias normais do mesmo ativo. A frequencia media de jump days foi 25.0% nas janelas, contra 17.8% nos dias normais. A comparacao e descritiva, usa datas de uma fonte terceirizada e nao identifica causalidade.
 
 ![Eventos](../outputs/figures/event_window_volatility.png)
 

@@ -77,7 +77,17 @@ def build_report(config: dict[str, Any]) -> str:
     )
     event_valid = events.loc[events.get("status", pd.Series(dtype=str)).eq("ok")]
     event_text = (
-        f"Foram avaliados {len(event_valid)} eventos manuais."
+        (
+            f"Foram avaliados {len(event_valid)} eventos de earnings. "
+            f"Na media, a RVol da janela t-1/t/t+1 foi "
+            f"{event_valid['event_vs_normal_ratio'].mean() - 1:.1%} maior que "
+            f"a media dos dias normais do mesmo ativo. A frequencia media de "
+            f"jump days foi {event_valid['event_window_jump_frequency'].mean():.1%} "
+            f"nas janelas, contra "
+            f"{event_valid['normal_jump_frequency'].mean():.1%} nos dias normais. "
+            "A comparacao e descritiva, usa datas de uma fonte terceirizada e "
+            "nao identifica causalidade."
+        )
         if not event_valid.empty
         else (
             "O arquivo manual nao continha eventos utilizaveis. "

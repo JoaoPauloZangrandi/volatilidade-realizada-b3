@@ -331,11 +331,27 @@ def run_slides_builder(
         "Eventos de resultados",
         [
             (
-                f"{len(valid_events)} eventos manuais analisados em t-1, t e t+1."
+                f"{len(valid_events)} eventos de earnings analisados em t-1, t e t+1."
                 if not valid_events.empty
                 else "Nenhum evento manual verificavel foi preenchido."
             ),
+            (
+                f"RVol da janela: "
+                f"{valid_events['event_vs_normal_ratio'].mean() - 1:.1%} acima "
+                "dos dias normais."
+                if not valid_events.empty
+                else "Comparacao de RVol indisponivel."
+            ),
+            (
+                f"Jump days: "
+                f"{valid_events['event_window_jump_frequency'].mean():.1%} nas "
+                f"janelas vs {valid_events['normal_jump_frequency'].mean():.1%} "
+                "nos dias normais."
+                if not valid_events.empty
+                else "Comparacao de jumps indisponivel."
+            ),
             "A pipeline nao usa scraping fragil nem inventa datas.",
+            "Evidencia descritiva; fonte terceirizada e sem identificacao causal.",
         ],
         figures / "event_window_volatility.png",
     )

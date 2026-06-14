@@ -2,6 +2,18 @@
 
 Projeto do trabalho final da FGV EESP sobre volatilidade realizada, bipower variation, jumps e GARCH em acoes da B3 com dados intradiarios de 5 minutos.
 
+## Entregaveis finais para avaliacao
+
+Os dois arquivos abaixo sao autocontidos e foram preparados para serem avaliados
+sem acesso ao restante do repositorio:
+
+- [`Relatorio Final.html`](Relatório%20Final.html): relatorio completo com 31
+  figuras embutidas, 12 tabelas, metodologia, interpretacao, earnings,
+  referencias e um ZIP interno contendo bases e tabelas.
+- [`Codigo Final.py`](Código%20Final.py): pipeline unica para Google Colab, com
+  3.200+ linhas legiveis, snapshot comprimido das bases reais, todos os modulos
+  analiticos, geracao dos outputs e testes internos.
+
 ## Status
 
 Pipeline completa executada em 14 de junho de 2026 na branch `feature/trabalho-volatilidade-realizada-b3`. A reproducao integral usa:
@@ -42,6 +54,9 @@ Principais resultados observados:
 - A frequencia media de jump days foi 11,7% no core e 28,9% no complementar.
 - CASH3 e LWSA3 tiveram as maiores frequencias individuais de jumps, 38,3% e 36,7%.
 - Os 11 modelos GARCH foram estimados, mas a amostra de 59 retornos diarios exige cautela.
+- Foram analisados 12 eventos de earnings dentro da janela. A RVol media em
+  t-1/t/t+1 ficou 16,7% acima dos dias normais; jump days foram 25,0% nas
+  janelas contra 17,8% fora delas. A evidencia e descritiva, nao causal.
 
 ## Instalacao no Windows
 

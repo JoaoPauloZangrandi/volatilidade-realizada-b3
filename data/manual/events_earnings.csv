@@ -1,2 +1,13 @@
 ticker,date,event_type,event_description
-
+PETR4.SA,2026-05-11,earnings,"Yahoo Finance earnings history; EPS estimate=2.52; reported=2.53; surprise=0.44%"
+VALE3.SA,2026-04-28,earnings,"Yahoo Finance earnings history; EPS estimate=0.56; reported=0.44; surprise=-21.43%"
+ITUB4.SA,2026-05-05,earnings,"Yahoo Finance earnings history; EPS estimate=1.11; reported=1.11; surprise=0.02%"
+BBDC4.SA,2026-05-05,earnings,"Yahoo Finance earnings history; EPS estimate=0.64; reported=0.48; surprise=-25.10%"
+B3SA3.SA,2026-05-08,earnings,"Yahoo Finance earnings history; EPS estimate=0.29; reported=0.30; surprise=3.37%"
+WEGE3.SA,2026-04-29,earnings,"Yahoo Finance earnings history; EPS estimate=0.37; reported=0.35; surprise=-6.66%"
+ABEV3.SA,2026-05-05,earnings,"Yahoo Finance earnings history; EPS estimate=0.23; reported=0.24; surprise=5.14%"
+TOTS3.SA,2026-05-06,earnings,"Yahoo Finance earnings history; EPS estimate=0.51; reported=0.42; surprise=-17.30%"
+LWSA3.SA,2026-05-07,earnings,"Yahoo Finance earnings history; EPS estimate=0.05; reported=0.04; surprise=-21.14%"
+MGLU3.SA,2026-05-07,earnings,"Yahoo Finance earnings history; EPS estimate=-0.05; reported=-0.07; surprise=-48.16%"
+CASH3.SA,2026-05-14,earnings,"Yahoo Finance earnings history; EPS estimate=0.12; reported=-0.53; surprise=-545.42%"
+CASH3.SA,2026-03-18,earnings,"Yahoo Finance earnings history; EPS estimate=0.15; reported=-0.14; surprise=-191.07%"
