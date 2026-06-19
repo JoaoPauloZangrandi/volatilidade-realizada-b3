@@ -108,7 +108,7 @@ PROJECT_ROOT = Path(
 CONFIG: dict[str, Any] = {
     "project": {
         "title": "Volatilidade Realizada com Dados Intradiarios: Evidencias para Acoes da B3",
-        "student_name": "Joao Paulo Zangrandi",
+        "student_name": "Heitor Siqueira, João Zangrandi, Juan Puzzo e Kaue Jacob",
         "institution": "FGV EESP",
         "obsidian_path": "",
     },
